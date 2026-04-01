@@ -1,0 +1,21 @@
+[
+  {
+    "name": "vedant",
+    "email": "vedant@gmail.com",
+    "password": "1111",
+    "branch": "cse",
+    "enrollment": "11815602723",
+    "eTokens": 10000,
+    "portfolio": []
+  },
+  {
+    "name": "v",
+    "email": "v@gmail.com",
+    "password": "123",
+    "branch": "ECE",
+    "enrollment": "123",
+    "eTokens": 10000,
+    "portfolio": [],
+    "options": []
+  }
+]
