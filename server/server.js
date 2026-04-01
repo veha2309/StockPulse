@@ -10,7 +10,7 @@ const app      = express();
 const DATA_DIR = path.join(__dirname, "data");
 const PORT     = 4000;
 
-const ADMIN_PASSWORD = "admin@stockpulse";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 app.use(cors());
 app.use(express.json());
@@ -197,7 +197,7 @@ app.get("/api/history", (req, res) => {
 // ── Admin ─────────────────────────────────────────────────────────────────────
 app.post("/api/admin/login", (req, res) => {
   const { password } = req.body;
-  if (password !== ADMIN_PASSWORD) {
+  if (!ADMIN_PASSWORD || password !== ADMIN_PASSWORD) {
     console.log("[ADMIN LOGIN FAILED]");
     return res.status(401).json({ error: "Invalid admin password" });
   }
