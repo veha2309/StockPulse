@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 StockPulse - Next-Gen Trading Terminal (Web)
 
-## Getting Started
+StockPulse is a high-performance, glassmorphic trading dashboard designed for the E-Summit competition. It provides real-time market insights, advanced portfolio tracking, and a sophisticated options chain interface.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ Features
+
+### 📊 Professional Dashboard
+- **Glassmorphic UI**: Premium visual design with real-time blur and vibrant accents.
+- **Dynamic P&L**: Real-time calculation of Profit and Loss across all equity and option holdings.
+- **Wallet Integration**: Manage "E-Tokens" with instant trade settlements.
+
+### 📈 Advanced Trading
+- **Equity Holdings**: Buy and sell stocks with automated averaging and real-time pricing.
+- **Options Chain**: Comprehensive PE/CE options list with Strike Price and Expiry filtering.
+- **Automatic Targets**: Configure Stop Loss and Take Profit levels that persist across devices.
+
+### 🛡️ Admin Control
+- **Backend Sync**: Leverages Supabase Service Role for high-privilege operations (e.g., wallet management).
+- **Audit Logs**: Full history of every trade made on the platform.
+
+---
+
+## 🛠️ Tech Stack
+- **Framework**: [Next.js 14+](https://nextjs.org/)
+- **Styling**: Tailwind CSS (Custom Glassmorphism)
+- **Database/Auth**: [Supabase](https://supabase.com/)
+- **Icons**: Lucide React
+
+---
+
+## ⚙️ Setup & Installation
+
+### 1. Prerequisites
+- Node.js (v18 or higher)
+- A Supabase account
+
+### 2. Environment Configuration
+Create a `.env.local` file in the root directory:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Install Dependencies
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Run Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🏛️ Architecture
+The application follows a modular structure focused on performance and real-time updates:
+- `/app/api`: Serverless functions for high-privilege Supabase operations.
+- `/components`: Reusable UI components (Dashboard, Portfolio, OptionsChain).
+- `/lib`: Supabase clients and utility functions.
+- `/schema.sql`: Database schema definition for rapid deployment.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> [!NOTE]
+> This project was developed specifically for the **E-Summit** competition and is optimized for low-latency market simulations.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+© 2026 StockPulse Team. All rights reserved.
