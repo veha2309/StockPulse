@@ -7,12 +7,13 @@ type Props = {
   user: UserData;
   company: Company;
   price: number | null;
+  defaultAction?: "buy" | "sell";
   onTradeSuccess: (user: UserData) => void;
 };
 
-export default function TradePanel({ user, company, price, onTradeSuccess }: Props) {
+export default function TradePanel({ user, company, price, defaultAction, onTradeSuccess }: Props) {
   const [amount, setAmount] = useState("");
-  const [action, setAction] = useState<"buy" | "sell">("buy");
+  const [action, setAction] = useState<"buy" | "sell">(defaultAction || "buy");
   const [loading, setLoading] = useState(false);
   const [toast, setToast]   = useState<ToastData | null>(null);
 
@@ -42,6 +43,7 @@ export default function TradePanel({ user, company, price, onTradeSuccess }: Pro
   }
 
   useEffect(() => { setAmount(""); setToast(null); }, [company]);
+  useEffect(() => { if (defaultAction) setAction(defaultAction); }, [defaultAction, company]);
 
   return (
     <>

@@ -1,7 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { COMPANIES } from "@/lib/constants";
+import type { Company } from "@/lib/types";
 
-const API = "http://localhost:4000/api/admin";
+const API = "/api/admin";
 
 type PortfolioItem = { symbol: string; amount: number; avgBuyPrice: number };
 type OptionPosition = { id: string; contractSymbol: string; type: string; lots: number; premium: number; side: string };
@@ -23,7 +25,7 @@ type Stats = {
   totalVolume: number; totalETokens: number;
 };
 
-type Tab = "users" | "trades" | "options";
+type Tab = "users" | "trades" | "options" | "favorites";
 
 function fmt(n: number) { return n.toLocaleString("en-IN", { maximumFractionDigits: 2 }); }
 function fmtDate(s: string) { return new Date(s).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }); }
@@ -191,6 +193,208 @@ function UserModal({ user, onClose, onReset, onDelete }: {
   );
 }
 
+// ── Favorites Manager ────────────────────────────────────────────────────────
+function FavoritesManager() {
+  const [globalFavs, setGlobalFavs]     = useState<string[]>([]);
+  const [query, setQuery]               = useState("");
+  const [searchRes, setSearchRes]       = useState<Company[]>([]);
+  const [searching, setSearching]       = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [toast, setToast]               = useState<{ msg: string; ok: boolean } | null>(null);
+  const [password, setPassword]         = useState("");
+  const debounceRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load current global favorites on mount
+  useEffect(() => {
+    fetch("/api/admin/favorites")
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.favorites)) setGlobalFavs(d.favorites); });
+  }, []);
+
+  // Live search
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) { setSearchRes([]); setSearching(false); return; }
+    setSearching(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/api/stocks/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setSearchRes(data.results ?? []);
+      } catch { setSearchRes([]); }
+      finally  { setSearching(false); }
+    }, 350);
+  }, [query]);
+
+  function toggle(symbol: string) {
+    setGlobalFavs(prev =>
+      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
+    );
+  }
+
+  async function broadcast() {
+    if (!password) { setToast({ msg: "Enter admin password first", ok: false }); return; }
+    setSaving(true);
+    try {
+      const res  = await fetch("/api/admin/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorites: globalFavs, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setToast({ msg: `✓ Pushed ${globalFavs.length} favorite(s) to all users`, ok: true });
+    } catch (err: any) {
+      setToast({ msg: err.message, ok: false });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setToast(null), 4000);
+    }
+  }
+
+  // Merge search results + preset list for display in picker
+  const pickerList = query.trim() ? searchRes : COMPANIES;
+  const favObjs    = globalFavs.map(sym => {
+    const found = COMPANIES.find(c => c.symbol === sym);
+    return found ?? { name: sym.replace("NSE:", ""), symbol: sym, sector: "—" };
+  });
+
+  return (
+    <div className="space-y-6">
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border ${
+          toast.ok
+            ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
+            : "bg-red-500/20 border-red-500/30 text-red-300"
+        }`}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Header card */}
+      <div className="glass rounded-xl border border-amber-500/20 p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-white font-bold flex items-center gap-2">⭐ Global Favorites Broadcast</h2>
+            <p className="text-gray-500 text-xs mt-1">
+              Choose stocks below, then click <span className="text-amber-400 font-semibold">Push to All Users</span>.
+              These will be silently merged into every user&apos;s favorites list within 5 seconds.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="password"
+              placeholder="Admin password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="input-field px-3 py-2 rounded-lg text-sm w-40"
+            />
+            <button
+              onClick={broadcast}
+              disabled={saving || globalFavs.length === 0}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+            >
+              {saving ? (
+                <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+              ) : "⭐"}
+              Push to All Users
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Left: picker */}
+        <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+            <p className="text-white text-sm font-semibold">Stock Picker</p>
+            <span className="text-gray-600 text-xs">{pickerList.length} stocks</span>
+          </div>
+          <div className="px-3 py-2 border-b border-white/[0.06]">
+            <div className="relative">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600"
+                fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" strokeLinecap="round" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search any NSE stock…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                className="w-full input-field pl-7 pr-3 py-1.5 rounded-lg text-sm"
+              />
+              {searching && (
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+          </div>
+          <div className="overflow-y-auto max-h-80">
+            {pickerList.map(c => {
+              const added = globalFavs.includes(c.symbol);
+              return (
+                <div key={c.symbol}
+                  role="button" tabIndex={0}
+                  onClick={() => toggle(c.symbol)}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") toggle(c.symbol); }}
+                  className={`flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors border-b border-white/[0.04] ${
+                    added ? "bg-amber-500/10" : "hover:bg-white/[0.03]"
+                  }`}>
+                  <div>
+                    <p className="text-white text-sm font-medium">{c.name}</p>
+                    <p className="text-gray-600 text-xs">{c.sector} · {c.symbol.replace("NSE:", "")}</p>
+                  </div>
+                  <span className={`text-lg transition-transform ${added ? "text-amber-400 scale-110" : "text-gray-700"}`}>
+                    {added ? "★" : "☆"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: selected favorites */}
+        <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+            <p className="text-white text-sm font-semibold">Will be pushed ({globalFavs.length})</p>
+            {globalFavs.length > 0 && (
+              <button onClick={() => setGlobalFavs([])} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="overflow-y-auto max-h-80">
+            {globalFavs.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-10 text-center">
+                <span className="text-3xl">⭐</span>
+                <p className="text-gray-600 text-sm">No stocks selected yet.<br />Click any stock on the left to add.</p>
+              </div>
+            ) : favObjs.map(c => (
+              <div key={c.symbol} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] group">
+                <div>
+                  <p className="text-white text-sm font-medium">{c.name}</p>
+                  <p className="text-gray-600 text-xs">{c.sector} · {c.symbol.replace("NSE:", "")}</p>
+                </div>
+                <button
+                  onClick={() => toggle(c.symbol)}
+                  className="text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg"
+                  title="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab]           = useState<Tab>("users");
@@ -200,21 +404,32 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [optTrades, setOptTrades] = useState<OptionTrade[]>([]);
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const [search, setSearch]     = useState("");
+  const [airdropAmount, setAirdropAmount] = useState("");
+  const [airdropPassword, setAirdropPassword] = useState("");
+  const [airdropLoading, setAirdropLoading] = useState(false);
+  const [airdropMsg, setAirdropMsg] = useState<{ text: string; isErr: boolean } | null>(null);
+  const [tradesError, setTradesError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const ts = Date.now();
     const [sRes, uRes, tRes] = await Promise.all([
-      fetch(`${API}/stats`),
-      fetch(`${API}/users`),
-      fetch(`${API}/trades`),
+      fetch(`${API}/stats?t=${ts}`, { cache: 'no-store' }),
+      fetch(`${API}/users?t=${ts}`, { cache: 'no-store' }),
+      fetch(`${API}/trades?t=${ts}`, { cache: 'no-store' }),
     ]);
     setStats(await sRes.json());
     setUsers(await uRes.json());
     const td = await tRes.json();
-    setTrades(td.trades);
-    setOptTrades(td.optionTrades);
+    setTrades(td.trades || []);
+    setOptTrades(td.optionTrades || []);
+    if (td.error) setTradesError(td.error);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
+  }, [load]);
 
   async function handleReset(email: string, amount: number) {
     await fetch(`${API}/user/reset-tokens`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, amount }) });
@@ -224,6 +439,29 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   async function handleDelete(email: string) {
     await fetch(`${API}/user`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
     load();
+  }
+
+  async function handleAirdrop(e: React.FormEvent) {
+      e.preventDefault();
+      if (!airdropPassword) { setAirdropMsg({ text: "Password required", isErr: true }); return; }
+      if (!airdropAmount || parseFloat(airdropAmount) <= 0) { setAirdropMsg({ text: "Invalid amount", isErr: true }); return; }
+      setAirdropLoading(true); setAirdropMsg(null);
+
+      const res = await fetch(`${API}/airdrop`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: parseFloat(airdropAmount), password: airdropPassword })
+      });
+      const data = await res.json();
+      setAirdropLoading(false);
+
+      if (!res.ok) {
+          setAirdropMsg({ text: data.error || "Failed", isErr: true });
+      } else {
+          setAirdropMsg({ text: `Success: Sent ₹${airdropAmount} to ${data.count} users!`, isErr: false });
+          setAirdropAmount("");
+          load(); // refresh data
+      }
   }
 
   const filteredUsers  = users.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()));
@@ -264,10 +502,19 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         {/* Search + Tabs */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex border-b border-white/[0.06]">
-            {(["users", "trades", "options"] as Tab[]).map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors capitalize ${tab === t ? "border-blue-500 text-white" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
-                {t === "options" ? "Option Trades" : t}
+            {([
+              { id: "users",     label: "Users" },
+              { id: "trades",    label: "Trades" },
+              { id: "options",   label: "Option Trades" },
+              { id: "favorites", label: "★ Favorites" },
+            ] as { id: Tab; label: string }[]).map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                  tab === t.id
+                    ? t.id === "favorites" ? "border-amber-400 text-amber-400" : "border-blue-500 text-white"
+                    : "border-transparent text-gray-500 hover:text-gray-300"
+                }`}>
+                {t.label}
               </button>
             ))}
           </div>
@@ -280,127 +527,189 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         {/* Users table */}
         {tab === "users" && (
-          <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
-                  <th className="text-left px-4 py-3">Name</th>
-                  <th className="text-left px-4 py-3 hidden sm:table-cell">Branch</th>
-                  <th className="text-left px-4 py-3 hidden md:table-cell">Enrollment</th>
-                  <th className="text-right px-4 py-3">E-Tokens</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Trades</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Options</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((u, i) => (
-                  <tr key={u.email} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
-                    <td className="px-4 py-3">
-                      <p className="text-white font-medium">{u.name}</p>
-                      <p className="text-gray-600 text-xs">{u.email}</p>
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{u.branch}</td>
-                    <td className="px-4 py-3 text-gray-400 font-mono text-xs hidden md:table-cell">{u.enrollment}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`font-semibold tabular-nums ${u.eTokens >= 10000 ? "text-emerald-400" : u.eTokens >= 5000 ? "text-amber-400" : "text-red-400"}`}>
-                        ₹{fmt(u.eTokens)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-400 hidden sm:table-cell">{u.tradeCount}</td>
-                    <td className="px-4 py-3 text-right text-gray-400 hidden sm:table-cell">{u.optionTradeCount}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => setSelected(u)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors px-2 py-1 rounded hover:bg-blue-500/10">
-                        View →
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No users found</td></tr>
-                )}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+              {/* Massive Airdrop Panel */}
+              <div className="glass rounded-xl border border-cyan-500/20 p-5 mb-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                          <h3 className="text-white font-bold text-sm flex items-center gap-2">🎁 Global E-Token Airdrop</h3>
+                          <p className="text-gray-500 text-xs mt-1">Send a specific amount of E-Tokens to EVERY registered user simultaneously.</p>
+                      </div>
+                      <form onSubmit={handleAirdrop} className="flex items-center gap-2 flex-wrap">
+                          <input type="number" placeholder="Amount (eTokens)" value={airdropAmount} onChange={e => setAirdropAmount(e.target.value)} className="input-field px-3 py-2 rounded-lg text-sm w-36" required />
+                          <input type="password" placeholder="Admin Password" value={airdropPassword} onChange={e => setAirdropPassword(e.target.value)} className="input-field px-3 py-2 rounded-lg text-sm w-36" required />
+                          <button type="submit" disabled={airdropLoading} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold rounded-lg text-sm transition-colors flex items-center gap-2">
+                              {airdropLoading ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "🚀"}
+                              Airdrop All
+                          </button>
+                      </form>
+                  </div>
+                  {airdropMsg && <p className={`mt-3 text-xs font-medium ${airdropMsg.isErr ? "text-red-400" : "text-emerald-400"}`}>{airdropMsg.text}</p>}
+              </div>
+
+              <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                      <th className="text-left px-4 py-3">Name</th>
+                      <th className="text-left px-4 py-3 hidden sm:table-cell">Branch</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Enrollment</th>
+                      <th className="text-right px-4 py-3">E-Tokens</th>
+                      <th className="text-right px-4 py-3 hidden sm:table-cell">Trades</th>
+                      <th className="text-right px-4 py-3 hidden sm:table-cell">Options</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((u, i) => (
+                      <tr key={u.email} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                        <td className="px-4 py-3">
+                          <p className="text-white font-medium">{u.name}</p>
+                          <p className="text-gray-600 text-xs">{u.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{u.branch}</td>
+                        <td className="px-4 py-3 text-gray-400 font-mono text-xs hidden md:table-cell">{u.enrollment}</td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={`font-semibold tabular-nums ${u.eTokens >= 10000 ? "text-emerald-400" : u.eTokens >= 5000 ? "text-amber-400" : "text-red-400"}`}>
+                            ₹{fmt(u.eTokens)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-400 hidden sm:table-cell">{u.tradeCount}</td>
+                        <td className="px-4 py-3 text-right text-gray-400 hidden sm:table-cell">{u.optionTradeCount}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button onClick={() => setSelected(u)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors px-2 py-1 rounded hover:bg-blue-500/10">
+                            View →
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No users found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
           </div>
         )}
 
         {/* Equity trades table */}
         {tab === "trades" && (
-          <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
-                  <th className="text-left px-4 py-3">User</th>
-                  <th className="text-left px-4 py-3">Symbol</th>
-                  <th className="text-left px-4 py-3">Action</th>
-                  <th className="text-right px-4 py-3">Qty</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Price</th>
-                  <th className="text-right px-4 py-3">Total</th>
-                  <th className="text-right px-4 py-3 hidden md:table-cell">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTrades.map((t, i) => (
-                  <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
-                    <td className="px-4 py-3 text-gray-400 text-xs">{t.email}</td>
-                    <td className="px-4 py-3 text-white font-mono font-medium">{t.symbol?.replace("NSE:", "")}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.action === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
-                        {t.action.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{t.amount}</td>
-                    <td className="px-4 py-3 text-right text-gray-400 tabular-nums hidden sm:table-cell">₹{fmt(t.price)}</td>
-                    <td className="px-4 py-3 text-right text-white font-semibold tabular-nums">₹{fmt(t.total)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 text-xs hidden md:table-cell">{fmtDate(t.timestamp)}</td>
+          <div className="space-y-4">
+            
+            {/* DIAGNOSTIC WARNING FOR MISSING SCHEMA */}
+            {tradesError && (
+               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5 mb-4 shadow-[0_0_25px_rgba(239,68,68,0.15)] flex flex-col md:flex-row gap-5 items-start">
+                  <span className="text-4xl shadow-xl rounded-full p-1 bg-red-500/10">🚨</span>
+                  <div>
+                     <h3 className="text-white font-bold text-lg leading-tight mb-2">Database Disconnected / Missing</h3>
+                     <p className="text-gray-300 text-sm leading-relaxed mb-4">
+                        Your trading API requests are failing in the background because the PostgreSQL relation specifically for trades does not exist. <br/>
+                        Supabase threw error code: <code className="bg-red-500/20 px-1.5 py-0.5 rounded text-red-200 font-bold ml-1">{tradesError}</code>
+                     </p>
+                     
+                     <div className="bg-black/40 p-4 rounded-xl border border-red-500/10">
+                        <h4 className="text-red-400 font-semibold mb-2 text-xs uppercase tracking-widest">How to solve this immediately:</h4>
+                        <ol className="text-sm text-gray-400 space-y-2 list-decimal list-inside">
+                           <li>Go to your <a href="https://supabase.com/dashboard" target="_blank" className="text-blue-400 underline">Supabase Dashboard</a> and open the <b>SQL Editor</b>.</li>
+                           <li>Paste the exact contents of the <code>schema.sql</code> file located in your project directory.</li>
+                           <li>Click <b>Run</b> to generate the tables.</li>
+                           <li><i className="text-gray-500">(If already run, go to Project Settings -&gt; API -&gt; Reload Schema Cache)</i></li>
+                        </ol>
+                     </div>
+                  </div>
+               </div>
+            )}
+
+            <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="text-left px-4 py-3">User</th>
+                    <th className="text-left px-4 py-3">Symbol</th>
+                    <th className="text-left px-4 py-3">Action</th>
+                    <th className="text-right px-4 py-3">Qty</th>
+                    <th className="text-right px-4 py-3 hidden sm:table-cell">Price</th>
+                    <th className="text-right px-4 py-3">Total</th>
+                    <th className="text-right px-4 py-3 hidden md:table-cell">Time</th>
                   </tr>
-                ))}
-                {filteredTrades.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No trades found</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredTrades.map((t, i) => (
+                    <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                      <td className="px-4 py-3 text-gray-400 text-xs">{t.email}</td>
+                      <td className="px-4 py-3 text-white font-mono font-medium">{t.symbol?.replace("NSE:", "")}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.action === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
+                          {t.action.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{t.amount}</td>
+                      <td className="px-4 py-3 text-right text-gray-400 tabular-nums hidden sm:table-cell">₹{fmt(t.price)}</td>
+                      <td className="px-4 py-3 text-right text-white font-semibold tabular-nums">₹{fmt(t.total)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600 text-xs hidden md:table-cell">{fmtDate(t.timestamp)}</td>
+                    </tr>
+                  ))}
+                  {filteredTrades.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No trades found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* Option trades table */}
         {tab === "options" && (
-          <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
-                  <th className="text-left px-4 py-3">User</th>
-                  <th className="text-left px-4 py-3">Contract</th>
-                  <th className="text-left px-4 py-3">Action</th>
-                  <th className="text-right px-4 py-3">Lots</th>
-                  <th className="text-right px-4 py-3 hidden sm:table-cell">Premium</th>
-                  <th className="text-right px-4 py-3">Total</th>
-                  <th className="text-right px-4 py-3 hidden md:table-cell">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOpts.map((t, i) => (
-                  <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
-                    <td className="px-4 py-3 text-gray-400 text-xs">{t.email}</td>
-                    <td className="px-4 py-3 text-white font-mono text-xs truncate max-w-[160px]">{t.contractSymbol}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.action === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
-                        {t.action.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{t.lots}</td>
-                    <td className="px-4 py-3 text-right text-gray-400 tabular-nums hidden sm:table-cell">₹{fmt(t.premium)}</td>
-                    <td className="px-4 py-3 text-right text-white font-semibold tabular-nums">₹{fmt(t.total)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600 text-xs hidden md:table-cell">{fmtDate(t.timestamp)}</td>
+          <div className="space-y-4">
+
+            {/* DIAGNOSTIC WARNING */}
+            {tradesError && (
+               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5 mb-4 flex items-center gap-3 text-red-400">
+                  <span>🚨</span> Database integration missing (<code>{tradesError}</code>) — Please execute `schema.sql` to track Options Trades!
+               </div>
+            )}
+
+            <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="text-left px-4 py-3">User</th>
+                    <th className="text-left px-4 py-3">Contract</th>
+                    <th className="text-left px-4 py-3">Action</th>
+                    <th className="text-right px-4 py-3">Lots</th>
+                    <th className="text-right px-4 py-3 hidden sm:table-cell">Premium</th>
+                    <th className="text-right px-4 py-3">Total</th>
+                    <th className="text-right px-4 py-3 hidden md:table-cell">Time</th>
                   </tr>
-                ))}
-                {filteredOpts.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No option trades found</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredOpts.map((t, i) => (
+                    <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                      <td className="px-4 py-3 text-gray-400 text-xs">{t.email}</td>
+                      <td className="px-4 py-3 text-white font-mono text-xs truncate max-w-[160px]">{t.contractSymbol}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.action === "buy" ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
+                          {t.action.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{t.lots}</td>
+                      <td className="px-4 py-3 text-right text-gray-400 tabular-nums hidden sm:table-cell">₹{fmt(t.premium)}</td>
+                      <td className="px-4 py-3 text-right text-white font-semibold tabular-nums">₹{fmt(t.total)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600 text-xs hidden md:table-cell">{fmtDate(t.timestamp)}</td>
+                    </tr>
+                  ))}
+                  {filteredOpts.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No option trades found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
+
+        {/* Favorites tab */}
+        {tab === "favorites" && <FavoritesManager />}
+
       </div>
     </div>
   );

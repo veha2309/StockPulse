@@ -150,23 +150,40 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
   const [toast, setToast]                   = useState<ToastData | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    const url = selectedExpiry
-      ? `/api/options?symbol=${symbol}&expiry=${encodeURIComponent(selectedExpiry)}`
-      : `/api/options?symbol=${symbol}`;
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        setCalls(data.calls ?? []);
-        setPuts(data.puts   ?? []);
-        setMarketClosed(data.marketClosed ?? false);
-        if (data.expiryDates?.length && !selectedExpiry) {
-          setExpiryDates(data.expiryDates);
-          setSelectedExpiry(data.expiryDates[0]);
+    let isMounted = true;
+    
+    const fetchOptions = async (silent = false) => {
+        if (!silent) setLoading(true);
+        const url = selectedExpiry
+          ? `/api/options?symbol=${symbol}&expiry=${encodeURIComponent(selectedExpiry)}`
+          : `/api/options?symbol=${symbol}`;
+        
+        try {
+            const r = await fetch(url);
+            const data = await r.json();
+            if (!isMounted) return;
+            
+            setCalls(data.calls ?? []);
+            setPuts(data.puts   ?? []);
+            setMarketClosed(data.marketClosed ?? false);
+            if (data.expiryDates?.length && !selectedExpiry) {
+              setExpiryDates(data.expiryDates);
+              setSelectedExpiry(data.expiryDates[0]);
+            }
+        } catch {
+            if (isMounted) setMarketClosed(true);
+        } finally {
+            if (isMounted && !silent) setLoading(false);
         }
-        setLoading(false);
-      })
-      .catch(() => { setMarketClosed(true); setLoading(false); });
+    };
+
+    fetchOptions();
+    const interval = setInterval(() => fetchOptions(true), 10000);
+
+    return () => {
+        isMounted = false;
+        clearInterval(interval);
+    };
   }, [symbol, selectedExpiry]);
 
   // reset expiry when symbol changes

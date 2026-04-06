@@ -9,6 +9,8 @@ export type PortfolioItem = {
   symbol:      string;
   amount:      number;
   avgBuyPrice: number;
+  sl?:         number;
+  tp?:         number;
 };
 
 export type TradeRecord = {
