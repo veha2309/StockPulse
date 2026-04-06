@@ -1,6 +1,6 @@
 # 🚀 StockPulse - Next-Gen Trading Terminal (Web)
 
-StockPulse is a high-performance, glassmorphic trading dashboard designed for the E-Summit competition. It provides real-time market insights, advanced portfolio tracking, and a sophisticated options chain interface.
+StockPulse is a high-performance, glassmorphic trading dashboard. It provides real-time market insights, advanced portfolio tracking, and a sophisticated options chain interface.
 
 ---
 
@@ -67,7 +67,7 @@ The application follows a modular structure focused on performance and real-time
 ---
 
 > [!NOTE]
-> This project was developed specifically for the **E-Summit** competition and is optimized for low-latency market simulations.
+> This project is optimized for low-latency market simulations.
 
 ---
 © 2026 StockPulse Team. All rights reserved.
