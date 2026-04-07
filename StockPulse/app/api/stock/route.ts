@@ -61,7 +61,10 @@ export async function GET(request: Request) {
       .map((t: number, i: number) => ({ time: t, open: ohlc.open?.[i], high: ohlc.high?.[i], low: ohlc.low?.[i], close: ohlc.close?.[i] }))
       .filter((c: any) => c.open != null && c.close != null);
 
-    return NextResponse.json({ quote, chartData, candleData });
+    return NextResponse.json(
+      { quote, chartData, candleData },
+      { headers: { 'Cache-Control': 's-maxage=20, stale-while-revalidate=59' } }
+    );
   } catch (err) {
     console.error("[stock api]", err);
     return NextResponse.json({ error: "Failed to fetch stock data" }, { status: 500 });

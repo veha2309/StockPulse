@@ -274,24 +274,34 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
         return prev;
       });
     };
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 20000);
     return () => { clearInterval(interval); window.removeEventListener("unhandledrejection", onUnhandledRejection); };
   }, [user.email]);
 
   const fetchHistory = useCallback(async (symbol: string, silent = false) => {
-    if (!silent) setLoading(true);
-    const res = await fetch(`/api/stock?symbol=${symbol}`);
-    const data = await res.json();
-    setQuote(data.quote);
-    setChartData(data.chartData);
-    setCandleData(data.candleData ?? []);
-    if (!silent) { setLoading(false); setWsReady(true); }
+    try {
+      if (!silent) setLoading(true);
+      const res = await fetch(`/api/stock?symbol=${symbol}`);
+      if (!res.ok) throw new Error("API response not OK");
+      
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setQuote(data.quote);
+      setChartData(data.chartData);
+      setCandleData(data.candleData ?? []);
+      if (!silent) { setLoading(false); setWsReady(true); }
+    } catch (err) {
+      console.warn("Stock fetch failed (likely rate limit), keeping last known good data:", err);
+      if (!silent) setLoading(false);
+      // We purposefully don't clear the state here so old data persists
+    }
   }, []);
 
   useEffect(() => {
     setWsReady(false);
     fetchHistory(selected.symbol);
-    const interval = setInterval(() => fetchHistory(selected.symbol, true), 15000);
+    const interval = setInterval(() => fetchHistory(selected.symbol, true), 20000);
     return () => clearInterval(interval);
   }, [selected, fetchHistory]);
 

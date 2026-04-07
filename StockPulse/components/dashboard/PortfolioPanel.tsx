@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { COMPANIES } from "@/lib/constants";
-import type { UserData, TradeRecord, OptionTradeRecord } from "@/lib/types";
+import type { UserData, TradeRecord, OptionTradeRecord, OptionPosition, Quote } from "@/lib/types";
 
 type PanelTab = "holdings" | "history";
 
@@ -35,6 +35,17 @@ export default function PortfolioPanel({
   const [targetSl, setTargetSl] = useState("");
   const [targetTp, setTargetTp] = useState("");
   const [updatingTarget, setUpdatingTarget] = useState(false);
+  
+  // New States for Detail & Sell Option modals
+  const [viewingSymbol, setViewingSymbol] = useState<string | null>(null);
+  const [viewingQuote, setViewingQuote] = useState<any>(null);
+  const [viewingLoading, setViewingLoading] = useState(false);
+
+  const [sellingOption, setSellingOption] = useState<OptionPosition | null>(null);
+  const [sellingLots, setSellingLots] = useState(1);
+  const [sellingPremium, setSellingPremium] = useState<number | null>(null);
+  const [fetchingPremium, setFetchingPremium] = useState(false);
+  const [processingSale, setProcessingSale] = useState(false);
 
   // Poll for option chain updates inside Portfolio isn't required here, but we fetch live quotes for equity
   useEffect(() => {
@@ -127,11 +138,88 @@ export default function PortfolioPanel({
           setTargetTp(item?.tp ? item.tp.toString() : "");
           return;
       }
+      
+      if (action === "view") {
+        setViewingSymbol(symbol);
+        setViewingLoading(true);
+        fetch(`/api/stock?symbol=${symbol}`)
+          .then(r => r.json())
+          .then(data => {
+            setViewingQuote(data.quote);
+            setViewingLoading(false);
+          })
+          .catch(() => setViewingLoading(false));
+        return;
+      }
+
       if (onSelectCompany) onSelectCompany(symbol);
       if (action === "sell" && onFocusSell) {
           setTimeout(() => onFocusSell(), 100);
       }
       if (onClose) onClose();
+  }
+
+  async function handleActionOption(pos: OptionPosition, action: "view" | "sell") {
+    if (action === "view") {
+      setViewingSymbol(pos.underlyingSymbol);
+      setViewingLoading(true);
+      fetch(`/api/stock?symbol=${pos.underlyingSymbol}`)
+        .then(r => r.json())
+        .then(data => {
+          setViewingQuote(data.quote);
+          setViewingLoading(false);
+        })
+        .catch(() => setViewingLoading(false));
+      return;
+    }
+    
+    if (action === "sell") {
+      setSellingOption(pos);
+      setSellingLots(pos.lots);
+      setFetchingPremium(true);
+      
+      try {
+        const res = await fetch(`/api/options?symbol=${pos.underlyingSymbol}`);
+        const data = await res.json();
+        const list = pos.type === "call" ? data.calls : data.puts;
+        const contract = list.find((c: any) => c.strike === pos.strike);
+        setSellingPremium(contract?.lastPrice ?? pos.premium);
+      } catch {
+        setSellingPremium(pos.premium);
+      } finally {
+        setFetchingPremium(false);
+      }
+    }
+  }
+
+  async function confirmOptionSell() {
+    if (!sellingOption || !sellingPremium) return;
+    setProcessingSale(true);
+    try {
+      const res = await fetch('/api/trade', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          tradeType: "option",
+          action: "sell",
+          contractSymbol: sellingOption.contractSymbol,
+          underlyingSymbol: sellingOption.underlyingSymbol,
+          optionType: sellingOption.type,
+          strike: sellingOption.strike,
+          expiration: sellingOption.expiration,
+          lots: sellingLots,
+          premium: sellingPremium
+        })
+      });
+      const data = await res.json();
+      if (data.user && onUserUpdate) onUserUpdate(data.user);
+      setSellingOption(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProcessingSale(false);
+    }
   }
 
   async function saveTargets(symbol: string) {
@@ -269,7 +357,7 @@ export default function PortfolioPanel({
             </p>
             {options.length > 0 ? (
               options.map(pos => (
-                <div key={pos.id} className="px-3 py-2.5 rounded-xl mb-0.5 bg-white/[0.02] border border-white/[0.04]">
+                <div key={pos.id} className="group px-3 py-2.5 rounded-xl mb-0.5 bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-all relative overflow-hidden">
                   <div className="flex justify-between items-center">
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${pos.type === "call" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
                       {pos.type.toUpperCase()}
@@ -284,6 +372,16 @@ export default function PortfolioPanel({
                     Exp: {new Date(pos.expiration * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                     {" · "}{pos.underlyingSymbol}
                   </p>
+
+                  {/* Hover Actions overlay for Options */}
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-[#111116] via-[#111116] to-transparent pl-8">
+                     <button onClick={() => handleActionOption(pos, "view")} className="px-2.5 py-1.5 text-[10px] font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg transition-colors border border-blue-500/20">
+                         View
+                     </button>
+                     <button onClick={() => handleActionOption(pos, "sell")} className="px-2.5 py-1.5 text-[10px] font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors border border-red-500/20">
+                         Sell
+                     </button>
+                  </div>
                 </div>
               ))
             ) : (
@@ -365,9 +463,6 @@ export default function PortfolioPanel({
         )}
       </div>
 
-      <div className="px-4 py-2 border-t border-white/[0.06] flex-shrink-0">
-        <p className="text-[10px] text-gray-700 text-center">Powered by Yahoo Finance · MongoDB</p>
-      </div>
 
       {/* Targets Modal Overlay */}
       {targetingSymbol && (
@@ -385,7 +480,6 @@ export default function PortfolioPanel({
                               <input type="number" value={targetTp} onChange={e => setTargetTp(e.target.value)} placeholder="0.00"
                                   className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl pl-6 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors" />
                           </div>
-                          <p className="text-[9px] text-gray-600 mt-1">Sells automatically when stock hits this target.</p>
                       </div>
                       <div>
                           <label className="text-[10px] uppercase font-bold tracking-widest text-amber-500 mb-1 block">Stop Loss (SL)</label>
@@ -394,7 +488,6 @@ export default function PortfolioPanel({
                               <input type="number" value={targetSl} onChange={e => setTargetSl(e.target.value)} placeholder="0.00"
                                   className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl pl-6 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors" />
                           </div>
-                          <p className="text-[9px] text-gray-600 mt-1">Sells automatically when stock drops below.</p>
                       </div>
                   </div>
 
@@ -405,6 +498,126 @@ export default function PortfolioPanel({
               </div>
           </div>
       )}
+
+      {/* View Details Modal Overlay */}
+      {viewingSymbol && (
+        <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#111116] border border-white/[0.08] shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden relative">
+            <button onClick={() => { setViewingSymbol(null); setViewingQuote(null); }} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors z-10">✕</button>
+            
+            {viewingLoading ? (
+               <div className="py-20 flex flex-col items-center justify-center gap-3">
+                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                 <p className="text-xs text-gray-500">Fetching live details...</p>
+               </div>
+            ) : viewingQuote ? (
+               <div className="p-6">
+                 <div className="mb-6">
+                   <h3 className="text-lg font-bold text-white leading-none">{COMPANIES.find(c => c.symbol === viewingSymbol)?.name || viewingSymbol}</h3>
+                   <p className="text-xs text-gray-500 mt-1">{viewingSymbol} · {COMPANIES.find(c => c.symbol === viewingSymbol)?.sector ?? "Equities"}</p>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-white/[0.02] p-3 rounded-xl border border-white/[0.04]">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Current Price</p>
+                      <p className="text-xl font-bold text-white tabular-nums">₹{viewingQuote.c?.toFixed(2)}</p>
+                      <p className={`text-[10px] font-mono mt-1 ${viewingQuote.d >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {viewingQuote.d >= 0 ? "▲" : "▼"} {Math.abs(viewingQuote.dp ?? 0).toFixed(2)}%
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.02] p-3 rounded-xl border border-white/[0.04]">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Prev Close</p>
+                      <p className="text-xl font-bold text-gray-300 tabular-nums">₹{viewingQuote.pc?.toFixed(2)}</p>
+                    </div>
+                 </div>
+
+                 <div className="space-y-3 mb-8">
+                   <div className="flex justify-between text-xs py-2 border-b border-white/[0.04]">
+                     <span className="text-gray-500">Day High</span>
+                     <span className="text-emerald-400 font-mono font-medium">₹{viewingQuote.h?.toFixed(2)}</span>
+                   </div>
+                   <div className="flex justify-between text-xs py-2 border-b border-white/[0.04]">
+                     <span className="text-gray-500">Day Low</span>
+                     <span className="text-red-400 font-mono font-medium">₹{viewingQuote.l?.toFixed(2)}</span>
+                   </div>
+                   <div className="flex justify-between text-xs py-2 border-b border-white/[0.04]">
+                     <span className="text-gray-500">Open</span>
+                     <span className="text-gray-300 font-mono font-medium">₹{viewingQuote.o?.toFixed(2)}</span>
+                   </div>
+                 </div>
+
+                 <button onClick={() => { 
+                   if (onSelectCompany) onSelectCompany(viewingSymbol); 
+                   setViewingSymbol(null); 
+                   if (onClose) onClose(); 
+                 }} className="w-full py-3 bg-white text-black hover:bg-gray-200 text-xs font-bold rounded-xl transition-all">
+                    Go to Chart
+                 </button>
+               </div>
+            ) : (
+              <div className="py-12 text-center">
+                <p className="text-xs text-red-500">Failed to load details.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Option Sell Modal Overlay */}
+      {sellingOption && (
+        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111116] border border-white/[0.1] shadow-2xl rounded-2xl w-full max-w-sm p-6 relative">
+             <button onClick={() => setSellingOption(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">✕</button>
+             
+             <div className="flex items-center gap-2 mb-2">
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sellingOption.type === "call" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                  {sellingOption.type.toUpperCase()}
+                </span>
+                <h3 className="text-white font-bold text-sm">Sell Position</h3>
+             </div>
+             <p className="text-xs text-gray-500 mb-6">Confirm your lot size and exit premium.</p>
+
+             <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2 block">Lots to Sell (Max: {sellingOption.lots})</label>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setSellingLots(Math.max(1, sellingLots - 1))} className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.1] text-white hover:bg-white/[0.08] transition-colors">-</button>
+                    <div className="flex-1 bg-white/[0.03] border border-white/[0.1] rounded-xl py-2.5 text-center text-sm text-white font-mono">{sellingLots}</div>
+                    <button onClick={() => setSellingLots(Math.min(sellingOption.lots, sellingLots + 1))} className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.1] text-white hover:bg-white/[0.08] transition-colors">+</button>
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.02] p-4 rounded-xl border border-white/[0.04]">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[11px] text-gray-500">Buy Premium</span>
+                    <span className="text-[11px] text-gray-300 font-mono">{fmt(sellingOption.premium)}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[11px] text-gray-500">Current Premium</span>
+                    <span className={`text-[11px] font-mono font-bold ${fetchingPremium ? "text-gray-500" : "text-emerald-400"}`}>
+                       {fetchingPremium ? "Fetching..." : fmt(sellingPremium ?? 0)}
+                    </span>
+                  </div>
+                  <div className="pt-3 border-t border-white/[0.05] flex justify-between items-center">
+                    <span className="text-xs text-white font-bold">Estimated Return</span>
+                    <span className={`text-xs font-mono font-bold ${(sellingPremium ?? 0) >= sellingOption.premium ? "text-emerald-400" : "text-red-400"}`}>
+                       {fmt((sellingPremium ?? 0) * sellingLots)}
+                    </span>
+                  </div>
+                </div>
+             </div>
+
+             <button disabled={fetchingPremium || processingSale} onClick={confirmOptionSell}
+               className="w-full py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)]">
+                {processingSale ? "Processing Sale..." : `Sell ${sellingLots} Lot(s)`}
+             </button>
+          </div>
+        </div>
+      )}
+
+      <div className="px-4 py-2 border-t border-white/[0.06] flex-shrink-0">
+        <p className="text-[10px] text-gray-700 text-center">Powered by Yahoo Finance · MongoDB</p>
+      </div>
     </aside>
   );
 }
