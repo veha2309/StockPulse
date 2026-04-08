@@ -13,3 +13,23 @@ export async function GET() {
       error: txError?.message || optError?.message || null 
   });
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { tradeIds, optionTradeIds } = await request.json();
+
+    if (tradeIds && Array.isArray(tradeIds) && tradeIds.length > 0) {
+      const { error } = await supabase.from('trades').delete().in('_id', tradeIds);
+      if (error) throw error;
+    }
+
+    if (optionTradeIds && Array.isArray(optionTradeIds) && optionTradeIds.length > 0) {
+      const { error } = await supabase.from('option_trades').delete().in('_id', optionTradeIds);
+      if (error) throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+  }
+}

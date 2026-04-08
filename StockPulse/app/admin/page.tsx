@@ -409,6 +409,13 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [airdropLoading, setAirdropLoading] = useState(false);
   const [airdropMsg, setAirdropMsg] = useState<{ text: string; isErr: boolean } | null>(null);
   const [tradesError, setTradesError] = useState<string | null>(null);
+  
+  // Selection states
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // emails
+  const [selectedTrades, setSelectedTrades] = useState<string[]>([]); // _ids
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]); // _ids
+
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const ts = Date.now();
@@ -437,8 +444,71 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   }
 
   async function handleDelete(email: string) {
+    if (!confirm(`Are you sure you want to delete user ${email}?`)) return;
     await fetch(`${API}/user`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
     load();
+  }
+
+  async function handleBulkDeleteUsers() {
+    if (selectedUsers.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedUsers.length} users and all their data? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await fetch(`${API}/user`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: selectedUsers })
+      });
+      setSelectedUsers([]);
+      load();
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
+  async function handleBulkDeleteTrades(type: 'equity' | 'option') {
+    const ids = type === 'equity' ? selectedTrades : selectedOptions;
+    if (ids.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${ids.length} ${type} trades?`)) return;
+    setBulkDeleting(true);
+    try {
+      await fetch(`${API}/trades`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          tradeIds: type === 'equity' ? ids : [], 
+          optionTradeIds: type === 'option' ? ids : [] 
+        })
+      });
+      if (type === 'equity') setSelectedTrades([]);
+      else setSelectedOptions([]);
+      load();
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
+  function toggleSelectAll(type: 'users' | 'trades' | 'options') {
+    if (type === 'users') {
+      if (selectedUsers.length === filteredUsers.length) setSelectedUsers([]);
+      else setSelectedUsers(filteredUsers.map(u => u.email));
+    } else if (type === 'trades') {
+      if (selectedTrades.length === filteredTrades.length) setSelectedTrades([]);
+      else setSelectedTrades(filteredTrades.map(t => t._id));
+    } else {
+      if (selectedOptions.length === filteredOpts.length) setSelectedOptions([]);
+      else setSelectedOptions(filteredOpts.map(t => t._id));
+    }
+  }
+
+  function toggleItemSelect(id: string, type: 'users' | 'trades' | 'options') {
+    if (type === 'users') {
+      setSelectedUsers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    } else if (type === 'trades') {
+      setSelectedTrades(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    } else {
+      setSelectedOptions(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
   }
 
   async function handleAirdrop(e: React.FormEvent) {
@@ -547,10 +617,32 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   {airdropMsg && <p className={`mt-3 text-xs font-medium ${airdropMsg.isErr ? "text-red-400" : "text-emerald-400"}`}>{airdropMsg.text}</p>}
               </div>
 
+              {/* Bulk Actions Bar */}
+              {selectedUsers.length > 0 && (
+                <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 mb-4 animate-in fade-in slide-in-from-top-2">
+                  <span className="text-blue-300 text-sm font-medium">{selectedUsers.length} users selected</span>
+                  <button 
+                    onClick={handleBulkDeleteUsers}
+                    disabled={bulkDeleting}
+                    className="px-4 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    🗑️ Delete Selected
+                  </button>
+                </div>
+              )}
+
               <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                      <th className="px-4 py-3 w-10">
+                        <input 
+                          type="checkbox" 
+                          checked={filteredUsers.length > 0 && selectedUsers.length === filteredUsers.length} 
+                          onChange={() => toggleSelectAll('users')}
+                          className="rounded border-white/[0.1] bg-white/[0.05] text-blue-500 focus:ring-offset-0 focus:ring-blue-500"
+                        />
+                      </th>
                       <th className="text-left px-4 py-3">Name</th>
                       <th className="text-left px-4 py-3 hidden sm:table-cell">Branch</th>
                       <th className="text-left px-4 py-3 hidden md:table-cell">Enrollment</th>
@@ -562,7 +654,15 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   </thead>
                   <tbody>
                     {filteredUsers.map((u, i) => (
-                      <tr key={u.email} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                      <tr key={u.email} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"} ${selectedUsers.includes(u.email) ? "bg-blue-500/5" : ""}`}>
+                        <td className="px-4 py-3 text-center">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedUsers.includes(u.email)} 
+                            onChange={() => toggleItemSelect(u.email, 'users')}
+                            className="rounded border-white/[0.1] bg-white/[0.05] text-blue-500 focus:ring-offset-0 focus:ring-blue-500"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <p className="text-white font-medium">{u.name}</p>
                           <p className="text-gray-600 text-xs">{u.email}</p>
@@ -584,7 +684,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       </tr>
                     ))}
                     {filteredUsers.length === 0 && (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No users found</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600">No users found</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -621,9 +721,30 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             )}
 
             <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+              {/* Bulk Actions Bar */}
+              {selectedTrades.length > 0 && (
+                <div className="flex items-center justify-between bg-blue-500/10 border-b border-blue-500/20 px-4 py-2 animate-in fade-in">
+                  <span className="text-blue-300 text-xs font-medium">{selectedTrades.length} trades selected</span>
+                  <button 
+                    onClick={() => handleBulkDeleteTrades('equity')}
+                    disabled={bulkDeleting}
+                    className="px-3 py-1 bg-red-600/80 hover:bg-red-500 text-white text-[10px] font-bold rounded transition-colors flex items-center gap-1.5"
+                  >
+                    🗑️ Delete Selected
+                  </button>
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 w-10">
+                      <input 
+                        type="checkbox" 
+                        checked={filteredTrades.length > 0 && selectedTrades.length === filteredTrades.length} 
+                        onChange={() => toggleSelectAll('trades')}
+                        className="rounded border-white/[0.1] bg-white/[0.05] text-blue-500 focus:ring-offset-0 focus:ring-blue-500"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3">User</th>
                     <th className="text-left px-4 py-3">Symbol</th>
                     <th className="text-left px-4 py-3">Action</th>
@@ -635,7 +756,15 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 </thead>
                 <tbody>
                   {filteredTrades.map((t, i) => (
-                    <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                    <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"} ${selectedTrades.includes(t._id) ? "bg-blue-500/5" : ""}`}>
+                      <td className="px-4 py-3 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedTrades.includes(t._id)} 
+                          onChange={() => toggleItemSelect(t._id, 'trades')}
+                          className="rounded border-white/[0.1] bg-white/[0.05] text-blue-500 focus:ring-offset-0 focus:ring-blue-500"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{t.email}</td>
                       <td className="px-4 py-3 text-white font-mono font-medium">{t.symbol?.replace("NSE:", "")}</td>
                       <td className="px-4 py-3">
@@ -650,7 +779,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     </tr>
                   ))}
                   {filteredTrades.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No trades found</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600">No trades found</td></tr>
                   )}
                 </tbody>
               </table>
@@ -670,9 +799,30 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             )}
 
             <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+               {/* Bulk Actions Bar */}
+               {selectedOptions.length > 0 && (
+                <div className="flex items-center justify-between bg-blue-500/10 border-b border-blue-500/20 px-4 py-2 animate-in fade-in">
+                  <span className="text-blue-300 text-xs font-medium">{selectedOptions.length} option trades selected</span>
+                  <button 
+                    onClick={() => handleBulkDeleteTrades('option')}
+                    disabled={bulkDeleting}
+                    className="px-3 py-1 bg-red-600/80 hover:bg-red-500 text-white text-[10px] font-bold rounded transition-colors flex items-center gap-1.5"
+                  >
+                    🗑️ Delete Selected
+                  </button>
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 w-10">
+                      <input 
+                        type="checkbox" 
+                        checked={filteredOpts.length > 0 && selectedOptions.length === filteredOpts.length} 
+                        onChange={() => toggleSelectAll('options')}
+                        className="rounded border-white/[0.1] bg-white/[0.05] text-blue-500 focus:ring-offset-0 focus:ring-blue-500"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3">User</th>
                     <th className="text-left px-4 py-3">Contract</th>
                     <th className="text-left px-4 py-3">Action</th>
@@ -684,7 +834,15 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 </thead>
                 <tbody>
                   {filteredOpts.map((t, i) => (
-                    <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}>
+                    <tr key={t._id} className={`border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"} ${selectedOptions.includes(t._id) ? "bg-blue-500/5" : ""}`}>
+                      <td className="px-4 py-3 text-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedOptions.includes(t._id)} 
+                          onChange={() => toggleItemSelect(t._id, 'options')}
+                          className="rounded border-white/[0.1] bg-white/[0.05] text-blue-500 focus:ring-offset-0 focus:ring-blue-500"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{t.email}</td>
                       <td className="px-4 py-3 text-white font-mono text-xs truncate max-w-[160px]">{t.contractSymbol}</td>
                       <td className="px-4 py-3">
@@ -699,7 +857,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     </tr>
                   ))}
                   {filteredOpts.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600">No option trades found</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600">No option trades found</td></tr>
                   )}
                 </tbody>
               </table>

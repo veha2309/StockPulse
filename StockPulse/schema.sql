@@ -6,7 +6,10 @@ CREATE TABLE users (
   password text NOT NULL,
   branch text,
   enrollment text,
-  etokens numeric DEFAULT 10000,
+--change if you want to change the default e token value
+--ALTER TABLE users ALTER COLUMN etokens SET DEFAULT 'new_value';
+--ALTER TABLE users ALTER COLUMN e_tokens SET DEFAULT 'new_value';
+  etokens numeric DEFAULT 10000,       
   e_tokens numeric DEFAULT 10000,
   portfolio jsonb DEFAULT '[]'::jsonb,
   options jsonb DEFAULT '[]'::jsonb
