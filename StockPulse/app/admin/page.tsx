@@ -409,6 +409,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [airdropLoading, setAirdropLoading] = useState(false);
   const [airdropMsg, setAirdropMsg] = useState<{ text: string; isErr: boolean } | null>(null);
   const [tradesError, setTradesError] = useState<string | null>(null);
+  const [tokenSort, setTokenSort] = useState<"asc" | "desc" | null>(null);
   
   // Selection states
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // emails
@@ -534,7 +535,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       }
   }
 
-  const filteredUsers  = users.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()));
+  const filteredUsers  = users
+    .filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => tokenSort === "asc" ? a.eTokens - b.eTokens : tokenSort === "desc" ? b.eTokens - a.eTokens : 0);
   const filteredTrades = trades.filter(t => t.email.toLowerCase().includes(search.toLowerCase()) || t.symbol?.toLowerCase().includes(search.toLowerCase()));
   const filteredOpts   = optTrades.filter(t => t.email.toLowerCase().includes(search.toLowerCase()) || t.contractSymbol?.toLowerCase().includes(search.toLowerCase()));
 
@@ -646,7 +649,15 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       <th className="text-left px-4 py-3">Name</th>
                       <th className="text-left px-4 py-3 hidden sm:table-cell">Branch</th>
                       <th className="text-left px-4 py-3 hidden md:table-cell">Enrollment</th>
-                      <th className="text-right px-4 py-3">E-Tokens</th>
+                      <th className="text-right px-4 py-3">
+                        <button
+                          onClick={() => setTokenSort(s => s === "desc" ? "asc" : "desc")}
+                          className="flex items-center gap-1 ml-auto text-gray-500 hover:text-white transition-colors uppercase tracking-wider text-xs"
+                        >
+                          E-Tokens
+                          <span className="text-[10px]">{tokenSort === "desc" ? "▼" : tokenSort === "asc" ? "▲" : "⇅"}</span>
+                        </button>
+                      </th>
                       <th className="text-right px-4 py-3 hidden sm:table-cell">Trades</th>
                       <th className="text-right px-4 py-3 hidden sm:table-cell">Options</th>
                       <th className="px-4 py-3" />
