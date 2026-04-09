@@ -1,6 +1,10 @@
 "use client";
+
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { User, Shield, Key, X, Save, Fingerprint, Activity } from "lucide-react";
 import Field from "@/components/ui/Field";
+import { cn } from "@/lib/utils";
 import type { UserData } from "@/lib/types";
 
 export default function EditProfileModal({ user, onUpdate, onClose }: {
@@ -26,30 +30,102 @@ export default function EditProfileModal({ user, onUpdate, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn" style={{ zIndex: 9999 }} onClick={onClose}>
-      <div className="glass rounded-2xl p-6 w-full max-w-sm mx-4 overflow-y-auto animate-fadeInUp" style={{ maxHeight: "90vh" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-bold text-white">Edit Profile</h3>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-300 text-lg leading-none transition-colors">✕</button>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-[9999] px-4" 
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ scale: 0.9, y: 30, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.9, y: 30, opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="glass-premium rounded-[3rem] p-8 sm:p-12 w-full max-w-lg border-border shadow-2xl relative overflow-hidden" 
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+          <Fingerprint size={120} />
         </div>
-        <form onSubmit={handleSave} className="flex flex-col gap-3.5">
-          <Field label="Full Name"  type="text"     value={form.name}            onChange={set("name")}            required />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Branch"     type="text"   value={form.branch}          onChange={set("branch")}          required />
-            <Field label="Enrollment" type="text"   value={form.enrollment}      onChange={set("enrollment")}      required />
+
+        <button onClick={onClose} className="absolute top-8 right-8 text-muted-foreground hover:text-foreground transition-all hover:rotate-90">
+          <X size={24} />
+        </button>
+
+        <div className="mb-10">
+          <div className="flex items-center gap-5">
+            <div className="p-4 rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-xl shadow-primary/5">
+              <User size={28} />
+            </div>
+            <div>
+              <h3 className="text-2xl sm:text-3xl font-black text-foreground tracking-tighter uppercase">Identity Profile</h3>
+              <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.3em] mt-2 opacity-50">Authorized Terminal Access</p>
+            </div>
           </div>
-          <div className="h-px bg-white/[0.06] my-1" />
-          <Field label="Current Password" type="password" placeholder="Required to save" value={form.currentPassword} onChange={set("currentPassword")} required />
-          <Field label="New Password"     type="password" placeholder="Leave blank to keep" value={form.newPassword}  onChange={set("newPassword")} />
-          {error && <p className="text-red-400 text-xs bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
-          <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl text-xs text-gray-400 hover:text-white glass transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="flex-1 btn-primary py-2.5 rounded-xl text-xs text-white font-semibold">
-              {saving ? "Saving..." : "Save Changes"}
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="sm:col-span-2">
+              <Field label="Full Name" type="text" value={form.name} onChange={set("name")} required />
+            </div>
+            <Field label="Branch Unit" type="text" value={form.branch} onChange={set("branch")} required />
+            <Field label="Matrix ID" type="text" value={form.enrollment} onChange={set("enrollment")} required />
+          </div>
+
+          <div className="flex items-center gap-4 py-2">
+            <div className="h-px flex-1 bg-border/50" />
+            <div className="flex items-center gap-2">
+              <Shield size={12} className="text-primary" />
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Authentication Layer</span>
+            </div>
+            <div className="h-px flex-1 bg-border/50" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <Field label="Current Password" type="password" placeholder="Required to save" value={form.currentPassword} onChange={set("currentPassword")} required />
+            <Field label="New Password" type="password" placeholder="Optional" value={form.newPassword} onChange={set("newPassword")} />
+          </div>
+
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.p 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="text-destructive text-[10px] font-black uppercase tracking-widest bg-destructive/10 rounded-2xl px-6 py-4 border border-destructive/20 text-center"
+              >
+                {error}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          <div className="flex gap-4 pt-4">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground bg-secondary/80 border border-border transition-all active:scale-95"
+            >
+              Abort
+            </button>
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-3 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary-foreground bg-primary shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+            >
+              {saving ? (
+                <span className="w-5 h-5 border-[3px] border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Activity size={16} />
+                  Update Identity
+                </>
+              )}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

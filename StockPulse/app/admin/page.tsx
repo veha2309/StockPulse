@@ -25,7 +25,19 @@ type Stats = {
   totalVolume: number; totalETokens: number;
 };
 
-type Tab = "users" | "trades" | "options" | "favorites";
+type Tab = "users" | "trades" | "options" | "favorites" | "recharge";
+
+type RechargeRequest = {
+  id: string;
+  user_email: string;
+  user_name: string | null;
+  requested_amount: number;
+  description: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  resolved_at: string | null;
+  admin_note: string | null;
+};
 
 function fmt(n: number) { return n.toLocaleString("en-IN", { maximumFractionDigits: 2 }); }
 function fmtDate(s: string) { return new Date(s).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }); }
@@ -410,6 +422,11 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [airdropMsg, setAirdropMsg] = useState<{ text: string; isErr: boolean } | null>(null);
   const [tradesError, setTradesError] = useState<string | null>(null);
   const [tokenSort, setTokenSort] = useState<"asc" | "desc" | null>(null);
+  const [rechargeRequests, setRechargeRequests] = useState<RechargeRequest[]>([]);
+  const [rechargeLoading, setRechargeLoading] = useState(false);
+  const [resolvePassword, setResolvePassword] = useState("");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolveMsg, setResolveMsg] = useState<{ text: string; ok: boolean } | null>(null);
   
   // Selection states
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // emails
@@ -431,6 +448,10 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     setTrades(td.trades || []);
     setOptTrades(td.optionTrades || []);
     if (td.error) setTradesError(td.error);
+
+    // Load recharge requests
+    const rRes = await fetch(`${API}/recharge?t=${ts}`, { cache: 'no-store' });
+    if (rRes.ok) setRechargeRequests(await rRes.json());
   }, []);
 
   useEffect(() => {
@@ -541,6 +562,25 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const filteredTrades = trades.filter(t => t.email.toLowerCase().includes(search.toLowerCase()) || t.symbol?.toLowerCase().includes(search.toLowerCase()));
   const filteredOpts   = optTrades.filter(t => t.email.toLowerCase().includes(search.toLowerCase()) || t.contractSymbol?.toLowerCase().includes(search.toLowerCase()));
 
+  const pendingCount = rechargeRequests.filter(r => r.status === 'pending').length;
+
+  async function handleResolve(id: string, status: 'approved' | 'rejected') {
+    if (!resolvePassword) { setResolveMsg({ text: 'Enter admin password', ok: false }); return; }
+    setResolvingId(id);
+    setResolveMsg(null);
+    const res = await fetch(`${API}/recharge`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, password: resolvePassword }),
+    });
+    const data = await res.json();
+    setResolvingId(null);
+    if (!res.ok) { setResolveMsg({ text: data.error || 'Failed', ok: false }); return; }
+    setResolveMsg({ text: status === 'approved' ? '✓ Approved & tokens credited!' : '✓ Request rejected.', ok: status === 'approved' });
+    setTimeout(() => setResolveMsg(null), 4000);
+    load();
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       {selected && <UserModal user={selected} onClose={() => setSelected(null)} onReset={handleReset} onDelete={handleDelete} />}
@@ -574,20 +614,26 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         {/* Search + Tabs */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="flex border-b border-white/[0.06]">
+        <div className="flex border-b border-white/[0.06]">
             {([
               { id: "users",     label: "Users" },
               { id: "trades",    label: "Trades" },
               { id: "options",   label: "Option Trades" },
+              { id: "recharge",  label: "💳 Recharge" },
               { id: "favorites", label: "★ Favorites" },
             ] as { id: Tab; label: string }[]).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors relative ${
                   tab === t.id
-                    ? t.id === "favorites" ? "border-amber-400 text-amber-400" : "border-blue-500 text-white"
+                    ? t.id === "favorites" ? "border-amber-400 text-amber-400" : t.id === "recharge" ? "border-emerald-400 text-emerald-400" : "border-blue-500 text-white"
                     : "border-transparent text-gray-500 hover:text-gray-300"
                 }`}>
                 {t.label}
+                {t.id === 'recharge' && pendingCount > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 text-[9px] font-black bg-emerald-500 text-black rounded-full leading-none">
+                    {pendingCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -878,6 +924,113 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         {/* Favorites tab */}
         {tab === "favorites" && <FavoritesManager />}
+
+        {/* Recharge Requests tab */}
+        {tab === "recharge" && (
+          <div className="space-y-4">
+
+            {/* Resolve toast */}
+            {resolveMsg && (
+              <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border ${
+                resolveMsg.ok ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' : 'bg-red-500/20 border-red-500/30 text-red-300'
+              }`}>
+                {resolveMsg.text}
+              </div>
+            )}
+
+            {/* Admin password input */}
+            <div className="glass rounded-xl border border-emerald-500/20 p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-white font-bold text-sm flex items-center gap-2">💳 Recharge Requests</h3>
+                  <p className="text-gray-500 text-xs mt-1">{pendingCount} pending · {rechargeRequests.length} total. Enter admin password to approve/reject.</p>
+                </div>
+                <input
+                  type="password"
+                  placeholder="Admin password to approve/reject"
+                  value={resolvePassword}
+                  onChange={e => setResolvePassword(e.target.value)}
+                  className="input-field px-3 py-2 rounded-lg text-sm w-full sm:w-52"
+                />
+              </div>
+            </div>
+
+            {rechargeRequests.length === 0 ? (
+              <div className="glass rounded-xl border border-white/[0.06] py-16 text-center">
+                <p className="text-3xl mb-3">💳</p>
+                <p className="text-gray-500 text-sm">No recharge requests yet.</p>
+              </div>
+            ) : (
+              <div className="glass rounded-xl border border-white/[0.06] overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-gray-500 text-xs uppercase tracking-wider">
+                      <th className="text-left px-4 py-3">User</th>
+                      <th className="text-right px-4 py-3">Amount (VT)</th>
+                      <th className="text-left px-4 py-3 hidden md:table-cell">Description</th>
+                      <th className="text-center px-4 py-3">Status</th>
+                      <th className="text-right px-4 py-3 hidden sm:table-cell">Requested</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rechargeRequests.map((r, i) => (
+                      <tr key={r.id} className={`border-b border-white/[0.04] ${
+                        r.status === 'pending' ? 'bg-emerald-500/5' : i % 2 === 0 ? '' : 'bg-white/[0.01]'
+                      }`}>
+                        <td className="px-4 py-3">
+                          <p className="text-white font-medium text-sm">{r.user_name || '—'}</p>
+                          <p className="text-gray-500 text-xs">{r.user_email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-black text-emerald-400 tabular-nums">{r.requested_amount.toLocaleString()}</span>
+                          <p className="text-gray-600 text-xs">≈ ₹{Math.ceil(r.requested_amount / 1000)}</p>
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 text-xs hidden md:table-cell max-w-[200px] truncate">
+                          {r.description || <span className="opacity-30">No description</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                            r.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                            r.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600 text-xs hidden sm:table-cell">
+                          {fmtDate(r.created_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.status === 'pending' ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleResolve(r.id, 'approved')}
+                                disabled={resolvingId === r.id}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[10px] font-bold rounded-lg transition-colors"
+                              >
+                                {resolvingId === r.id ? '...' : '✓ Approve'}
+                              </button>
+                              <button
+                                onClick={() => handleResolve(r.id, 'rejected')}
+                                disabled={resolvingId === r.id}
+                                className="px-3 py-1.5 bg-red-600/70 hover:bg-red-500 disabled:opacity-50 text-white text-[10px] font-bold rounded-lg transition-colors"
+                              >
+                                ✕ Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-gray-600 text-xs">{r.resolved_at ? fmtDate(r.resolved_at) : '—'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

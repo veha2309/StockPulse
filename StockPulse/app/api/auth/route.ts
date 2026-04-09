@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   ]);
 
   if (userRes.error || !userRes.data) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({ error: "User not found", loggedOut: true }, { status: 200 });
   }
 
   const globalFavorites: string[] = favsRes.data?.value ?? [];
