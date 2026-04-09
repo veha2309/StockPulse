@@ -76,7 +76,7 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
         </div>
       </div>
 
-      <div className="flex-1 rounded-[2.5rem] overflow-hidden border border-border bg-background/10 glass-premium relative group min-h-[380px] sm:min-h-0">
+      <div className="flex-1 rounded-[2.5rem] overflow-hidden border border-border bg-background/10 glass-premium relative group min-h-[300px] sm:min-h-0">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
         
         {loading ? (

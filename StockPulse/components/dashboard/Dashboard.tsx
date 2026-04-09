@@ -407,9 +407,14 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
             </div>
             <span className="font-extrabold gradient-text-premium text-xl tracking-tighter uppercase">StockPulse</span>
           </div>
-          <button onClick={() => setMarketsOpen(false)} className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="sm:hidden flex-shrink-0 scale-90 origin-right">
+              <ThemeToggle />
+            </div>
+            <button onClick={() => setMarketsOpen(false)} className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors">
+              <X size={20} />
+            </button>
+          </div>
         </div>
         {SidebarContent}
         <div className="px-6 py-6 border-t border-border flex-shrink-0 bg-background/40">
@@ -599,15 +604,15 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
         </motion.div>
 
         <motion.div variants={itemVariants} className="flex-1 flex flex-col overflow-hidden relative z-0 min-h-0 sm:min-h-0">
-          <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${mainTab === "chart" ? "flex" : "hidden"} sm:flex ${mainTab !== "chart" ? "sm:hidden" : ""}`}>
-            <div className="h-[55vh] sm:h-auto sm:flex-[4] flex flex-col min-h-0 z-10">
+          <div className={`flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar sm:overflow-hidden ${mainTab === "chart" ? "flex" : "hidden"} sm:flex ${mainTab !== "chart" ? "sm:hidden" : ""}`}>
+            <div className="min-h-[320px] sm:min-h-0 sm:flex-[4] flex flex-col z-10 flex-shrink-0 sm:flex-shrink">
               <ChartArea
                 chartType={chartType} setChartType={setChartType}
                 chartData={chartData} candleData={candleData}
                 loading={loading} accent={accent} isPositive={isPositive}
               />
             </div>
-            <div className="flex-shrink-0 border-t border-border/50 sm:border-t-0 bg-background/20">
+            <div className="flex-shrink-0 border-t border-border/50 sm:border-t-0 bg-background/20 sm:mt-auto">
               <TradePanel user={user} company={selected} price={displayPrice} defaultAction={tradeAction} onTradeSuccess={setUser} />
             </div>
           </div>
