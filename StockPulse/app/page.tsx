@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import type { Screen, UserData } from "@/lib/types";
 
 // Dynamic imports for major screens to reduce initial TBT
-const LoginScreen    = dynamic(() => import("@/components/auth/LoginScreen"),    { ssr: false });
-const RegisterScreen = dynamic(() => import("@/components/auth/RegisterScreen"), { ssr: false });
-const Dashboard      = dynamic(() => import("@/components/dashboard/Dashboard"), { ssr: false });
+import LoginScreen from "@/components/auth/LoginScreen";
+import RegisterScreen from "@/components/auth/RegisterScreen";
+const Dashboard = dynamic(() => import("@/components/dashboard/Dashboard"), { ssr: false });
+
 
 
 export default function App() {

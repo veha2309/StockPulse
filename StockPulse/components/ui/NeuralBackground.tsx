@@ -1,8 +1,16 @@
 "use client";
-import { useEffect, useRef, memo } from "react";
+import { useEffect, useRef, memo, useState } from "react";
 
 const NeuralBackground = memo(function NeuralBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile, { passive: true });
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -21,25 +29,26 @@ const NeuralBackground = memo(function NeuralBackground() {
     resize();
     window.addEventListener("resize", resize, { passive: true });
 
-    // Detect dark mode for color choices
     const isDark = () => document.documentElement.classList.contains("dark");
 
-    // Generate sparse, slow-moving nodes
-    const NODE_COUNT = 5;
+    // Dynamic node count based on device performance (approximated by mobile width)
+    const mobile = window.innerWidth < 768;
+    const NODE_COUNT = mobile ? 2 : 5;
+    
     nodes = Array.from({ length: NODE_COUNT }, () => ({
       x:     Math.random() * window.innerWidth,
       y:     Math.random() * window.innerHeight,
-      vx:    (Math.random() - 0.5) * 0.2,
-      vy:    (Math.random() - 0.5) * 0.2,
-      r:     280 + Math.random() * 220,
-      alpha: 0.06 + Math.random() * 0.08,
+      vx:    (Math.random() - 0.5) * (mobile ? 0.1 : 0.2), // Slower on mobile
+      vy:    (Math.random() - 0.5) * (mobile ? 0.1 : 0.2),
+      r:     mobile ? (200 + Math.random() * 100) : (280 + Math.random() * 220),
+      alpha: mobile ? 0.04 : (0.06 + Math.random() * 0.08),
       pulse: Math.random() * Math.PI * 2,
     }));
 
     let t = 0;
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      t += 0.005;
+      t += mobile ? 0.002 : 0.005;
 
       const dark = isDark();
       const primary = dark ? "99,102,241" : "79,70,229";
@@ -79,14 +88,12 @@ const NeuralBackground = memo(function NeuralBackground() {
 
   return (
     <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-background transition-colors duration-700 contain-strict">
-      {/* Canvas-based soft orbs — GPU-composited, no blur cost */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full opacity-90 will-change-opacity"
         style={{ mixBlendMode: "normal" }}
       />
 
-      {/* Grid texture — ultra-subtle */}
       <div
         className="absolute inset-0 opacity-[0.025] dark:opacity-[0.055]"
         style={{
@@ -94,16 +101,19 @@ const NeuralBackground = memo(function NeuralBackground() {
             linear-gradient(var(--border) 1px, transparent 1px),
             linear-gradient(90deg, var(--border) 1px, transparent 1px)
           `,
-          backgroundSize: "56px 56px",
+          backgroundSize: isMobile ? "40px 40px" : "56px 56px",
         }}
       />
 
-      {/* Ambient glow spots (CSS, not animated, zero cost) */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/5 rounded-full dark:bg-primary/8 blur-3xl opacity-60" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-violet-500/5 rounded-full dark:bg-violet-500/8 blur-3xl opacity-60" />
+      {/* Simplified ambient spots for mobile */}
+      <div className="absolute -top-32 -left-32 w-64 h-64 sm:w-96 sm:h-96 bg-primary/5 rounded-full dark:bg-primary/8 blur-3xl opacity-60" />
+      {!isMobile && (
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-violet-500/5 rounded-full dark:bg-violet-500/8 blur-3xl opacity-60" />
+      )}
     </div>
   );
 });
 
 export default NeuralBackground;
+
 
