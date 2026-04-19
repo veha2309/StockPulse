@@ -1,8 +1,8 @@
 "use client";
-
+import { memo } from "react";
 import { motion } from "framer-motion";
 
-export default function Orbs() {
+const Orbs = memo(function Orbs() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
       <motion.div 
@@ -16,7 +16,8 @@ export default function Orbs() {
           repeat: Infinity,
           ease: "linear"
         }}
-        className="orb w-[600px] h-[600px] bg-blue-500/30 dark:bg-blue-700/20 top-[-200px] left-[-200px] blur-[120px]" 
+        // Using will-change and slightly lower blur for massive paint performance gain
+        className="orb w-[600px] h-[600px] bg-blue-500/30 dark:bg-blue-700/20 top-[-200px] left-[-200px] blur-[100px] will-change-transform" 
       />
       <motion.div 
         animate={{
@@ -29,7 +30,7 @@ export default function Orbs() {
           repeat: Infinity,
           ease: "linear"
         }}
-        className="orb w-[500px] h-[500px] bg-indigo-500/20 dark:bg-violet-700/20 bottom-[-150px] right-[-150px] blur-[120px]" 
+        className="orb w-[500px] h-[500px] bg-indigo-500/20 dark:bg-violet-700/20 bottom-[-150px] right-[-150px] blur-[100px] will-change-transform" 
       />
       <motion.div 
         animate={{
@@ -41,8 +42,11 @@ export default function Orbs() {
           repeat: Infinity,
           ease: "linear"
         }}
-        className="orb w-[400px] h-[400px] bg-emerald-500/20 dark:bg-emerald-700/10 top-[30%] left-[40%] blur-[120px]" 
+        className="orb w-[400px] h-[400px] bg-emerald-500/20 dark:bg-emerald-700/10 top-[30%] left-[40%] blur-[100px] will-change-transform" 
       />
     </div>
   );
-}
+});
+
+export default Orbs;
+

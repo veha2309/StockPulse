@@ -1,9 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import LoginScreen    from "@/components/auth/LoginScreen";
-import RegisterScreen from "@/components/auth/RegisterScreen";
-import Dashboard      from "@/components/dashboard/Dashboard";
+import dynamic from "next/dynamic";
 import type { Screen, UserData } from "@/lib/types";
+
+// Dynamic imports for major screens to reduce initial TBT
+const LoginScreen    = dynamic(() => import("@/components/auth/LoginScreen"),    { ssr: false });
+const RegisterScreen = dynamic(() => import("@/components/auth/RegisterScreen"), { ssr: false });
+const Dashboard      = dynamic(() => import("@/components/dashboard/Dashboard"), { ssr: false });
+
 
 export default function App() {
   const [screen, setScreen]     = useState<Screen>("login");
@@ -66,10 +70,16 @@ export default function App() {
 
   // Show loading state until initialized
   if (!isInitialized) {
-    return <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="text-white">Loading...</div>
-    </div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <div className="text-muted-foreground font-black uppercase tracking-widest text-[10px]">Initializing StockPulse</div>
+        </div>
+      </div>
+    );
   }
+
 
   function handleAuth(user: UserData) {
     localStorage.setItem("session_email", user.email);
