@@ -314,7 +314,7 @@
 }
 
 .animate-float { animation: float 6s ease-in-out infinite; }
-.animate-slide-up { animation: slide-up-fade-in 0.4s var(--ease-premium) both; }
+.animate-slide-up { animation: slide-up-fade-in 0.2s var(--ease-premium) both; }
 .animate-counter { animation: counter-up 0.3s var(--ease-bounce) both; }
 
 /* ══════════════════════════════════════════
