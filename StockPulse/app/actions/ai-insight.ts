@@ -1,10 +1,26 @@
 "use server";
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Matching the exact type expected by your StockPulse dashboard component
+// Prioritized list of models for failover
+const MODEL_PRIORITY = [
+  "gemini-2.0-flash",
+  "gemini-3-flash-preview",
+  "gemini-1.5-flash",
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro"
+];
+
+const MAX_RETRIES_PER_MODEL = 1;
+const RETRY_DELAY = 1500; // 1.5s delay for 503s
+
+async function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function getAIInsight(ticker: string): Promise<{ 
   summary?: string; 
   sentimentTag?: "BULLISH" | "BEARISH" | "NEUTRAL"; 
@@ -14,71 +30,70 @@ export async function getAIInsight(ticker: string): Promise<{
     return { error: "Gemini API key is not configured. Add GEMINI_API_KEY to your .env file." };
   }
 
-  // Strip out invalid characters but keep standard ticker formats (allow & for M&M)
   const sanitized = ticker.trim().toUpperCase().replace(/[^A-Z0-9:.&]/g, "");
   if (!sanitized || sanitized.length > 20) {
     return { error: "Please enter a valid stock ticker symbol." };
   }
 
-  try {
-    console.log(`Attempting AI insight for ${sanitized} with model: gemini-1.5-flash`);
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  
+  const prompt = `You are a neutral financial analyst. Analyze market sentiment for stock ticker "${sanitized}".
+  Respond ONLY with a valid JSON object.
+  JSON Structure:
+  {
+    "sentimentTag": "BULLISH" | "BEARISH" | "NEUTRAL",
+    "summary": "6-8 objective sentences summarizing market perception."
+  }`;
+
+  // Try each model in sequence
+  for (const modelName of MODEL_PRIORITY) {
+    let attempts = 0;
     
-    // Initialize the new GenAI SDK
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
-    const prompt = `You are a neutral quantitative financial data summarizer for a premium trading portal. Analyze the current market sentiment for the stock ticker "${sanitized}".
-
-    Strict Constraints:
-    1. Respond ONLY with a valid JSON object.
-    2. Provide financial advice, recommendations, or predictions , while marking them just ai generated and not be believed blindly.
-    3. Use generally known public information and summarize the current general market perception.
-    
-    The JSON object must strictly follow this structure:
-    {
-      "sentimentTag": "Must be exactly one of: BULLISH, BEARISH, or NEUTRAL",
-      "summary": "A concise 6-8 sentence, objective market sentiment overview."
-    }`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        // This ensures the AI returns clean JSON without markdown blocks (```json)
-        responseMimeType: "application/json",
-      }
-    });
-
-    const text = response.text;
-
-    if (text && text.trim().length > 0) {
+    while (attempts <= MAX_RETRIES_PER_MODEL) {
       try {
-        const parsedData = JSON.parse(text);
-        console.log(`Success with model: gemini-1.5-flash for ${sanitized}`);
+        console.log(`[AI Insight] Attempting with model: ${modelName} (Attempt ${attempts + 1})`);
         
-        return { 
-          summary: parsedData.summary,
-          sentimentTag: parsedData.sentimentTag
-        };
-      } catch (parseError) {
-        console.error("Failed to parse Gemini JSON:", text);
-        return { error: "Received an invalid format from the AI. Please try again." };
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        if (text && text.trim().length > 0) {
+          const parsedData = JSON.parse(text);
+          console.log(`[AI Insight] Success with model: ${modelName}`);
+          return { 
+            summary: parsedData.summary,
+            sentimentTag: parsedData.sentimentTag
+          };
+        }
+        
+        throw new Error("Empty response from model");
+
+      } catch (err: any) {
+        attempts++;
+        const status = err.status || 0;
+        const message = err.message || "";
+        
+        console.error(`[AI Insight] Model ${modelName} failed:`, message);
+
+        // If it's a 503 (High Demand) or 429 (Rate Limit) and we have retries left, wait and retry
+        if ((status === 503 || status === 429 || message.includes("503") || message.includes("429")) && attempts <= MAX_RETRIES_PER_MODEL) {
+          console.log(`[AI Insight] Service busy. Retrying model ${modelName} in ${RETRY_DELAY}ms...`);
+          await wait(RETRY_DELAY);
+          continue; 
+        }
+
+        // Otherwise, break inner loop and try NEXT model in priority list
+        break; 
       }
-    } else {
-      return { error: "The AI returned an empty response. Please try again." };
     }
-  } catch (err: any) {
-    console.error("Gemini API Error:", err);
-    
-    const message = err.message || "Unknown error";
-    
-    // Your robust error handling mapped to the UI
-    if (message.includes("429") || message.includes("quota")) {
-      return { error: "FREE TIER QUOTA EXCEEDED. Please check Google AI Studio to ensure your API Key is active." };
-    }
-    if (message.includes("404") || message.includes("not found")) {
-      return { error: "MODEL NOT FOUND: Gemini 1.5 Flash is not found for your current key. Ensure the 'Generative Language API' is enabled." };
-    }
-    
-    return { error: `Gemini API Error: ${message.substring(0, 80)}...` };
   }
+
+  return { error: "All AI models are currently experiencing high demand. Please try again in a moment." };
 }

@@ -101,50 +101,56 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
              </div>
           </div>
         ) : (
-          <div key={chartType} className="w-full h-full p-2 sm:p-5 lg:p-8 relative z-10">
+          <div key={chartType} className="w-full h-full relative z-10">
             {chartType === "candle" ? (
-              candleData.length === 0 ? <MarketClosed /> : <CandlestickChart data={candleData} isPositive={isPositive} />
+              candleData.length === 0 ? <MarketClosed /> : (
+                <div className="absolute inset-2 sm:inset-5 lg:inset-8">
+                  <CandlestickChart data={candleData} isPositive={isPositive} />
+                </div>
+              )
             ) : chartData.length === 0 ? <MarketClosed /> : (
-              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                <AreaChart data={chartData} margin={{ top: 20, right: 0, left: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor={accent} stopOpacity={0.4} />
-                      <stop offset="90%" stopColor={accent} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" stroke="currentColor" className="text-muted-foreground/5" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    tick={{ fill: "currentColor", fontSize: 11, fontWeight: 900 }} 
-                    className="text-muted-foreground/60 uppercase tracking-widest"
-                    interval="preserveStartEnd" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    dy={15}
-                  />
-                  <YAxis 
-                    domain={["auto", "auto"]} 
-                    tick={{ fill: "currentColor", fontSize: 11, fontWeight: 900 }} 
-                    className="text-muted-foreground/60 tabular-nums"
-                    tickFormatter={v => `₹${v.toLocaleString()}`} 
-                    width={55} 
-                    axisLine={false} 
-                    tickLine={false} 
-                    orientation="right" 
-                  />
-                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: accent, strokeWidth: 1, strokeDasharray: "4 4" }} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="price" 
-                    stroke={accent} 
-                    strokeWidth={3} 
-                    fill="url(#areaGrad)" 
-                    dot={false} 
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full p-2 sm:p-5 lg:p-8">
+                <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                  <AreaChart data={chartData} margin={{ top: 20, right: 0, left: 10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stopColor={accent} stopOpacity={0.4} />
+                        <stop offset="90%" stopColor={accent} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="currentColor" className="text-muted-foreground/5" vertical={false} />
+                    <XAxis 
+                      dataKey="time" 
+                      tick={{ fill: "currentColor", fontSize: 11, fontWeight: 900 }} 
+                      className="text-muted-foreground/60 uppercase tracking-widest"
+                      interval="preserveStartEnd" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      dy={15}
+                    />
+                    <YAxis 
+                      domain={["auto", "auto"]} 
+                      tick={{ fill: "currentColor", fontSize: 11, fontWeight: 900 }} 
+                      className="text-muted-foreground/60 tabular-nums"
+                      tickFormatter={v => `₹${v.toLocaleString()}`} 
+                      width={55} 
+                      axisLine={false} 
+                      tickLine={false} 
+                      orientation="right" 
+                    />
+                    <Tooltip content={<ChartTooltip />} cursor={{ stroke: accent, strokeWidth: 1, strokeDasharray: "4 4" }} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="price" 
+                      stroke={accent} 
+                      strokeWidth={3} 
+                      fill="url(#areaGrad)" 
+                      dot={false} 
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </div>
         )}

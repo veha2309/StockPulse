@@ -629,7 +629,9 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
           </motion.div>
         </header>
 
-        {/* Price bar */}
+        {/* Start Universal Scrolling Wrapper */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col relative z-0 min-h-0">
+          {/* Price bar */}
         <motion.div variants={itemVariants} className="flex items-center gap-4 sm:gap-8 px-4 sm:px-8 py-3 sm:py-4 border-b border-border flex-shrink-0 overflow-x-auto relative" style={{ background: 'linear-gradient(90deg, rgba(var(--primary-rgb, 79,70,229),0.02) 0%, transparent 100%)' }}>
           <div className="flex items-baseline gap-2 sm:gap-3 flex-shrink-0">
             <motion.span
@@ -772,7 +774,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
         </motion.div>
 
         {/* Premium Tab Bar — also has Holdings button on tablet (sm–xl) */}
-        <motion.div variants={itemVariants} className="hidden sm:flex border-b border-border bg-transparent flex-shrink-0 px-8 gap-1 items-center justify-between">
+        <motion.div variants={itemVariants} className="hidden sm:flex border-b border-border bg-background/80 backdrop-blur-xl flex-shrink-0 px-8 gap-1 items-center justify-between sticky top-0 z-20">
           <div className="flex gap-1">
             {([
               { id: "chart", label: "Asset Analysis" },
@@ -808,21 +810,21 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
           </button>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="flex-1 flex flex-col overflow-hidden relative z-0 min-h-0 sm:min-h-0">
-          <div className={`flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar sm:overflow-hidden ${mainTab === "chart" ? "flex" : "hidden"} sm:flex ${mainTab !== "chart" ? "sm:hidden" : ""}`}>
-            <div className="min-h-[320px] sm:min-h-0 sm:flex-[4] flex flex-col z-10 flex-shrink-0 sm:flex-shrink">
+        <motion.div variants={itemVariants} className="flex-1 flex flex-col relative z-0">
+          <div className={`flex-1 flex flex-col min-h-0 ${mainTab === "chart" ? "flex" : "hidden"} sm:flex ${mainTab !== "chart" ? "sm:hidden" : ""}`}>
+            <div className="min-h-[350px] sm:min-h-[500px] flex-1 flex flex-col z-10 flex-shrink-0">
               <ChartArea
                 chartType={chartType} setChartType={setChartType}
                 chartData={chartData} candleData={candleData}
                 loading={loading} accent={accent} isPositive={isPositive}
               />
             </div>
-            <div className="flex-shrink-0 border-t border-border/50 sm:border-t-0 bg-background/20 sm:mt-auto">
+            <div className="flex-shrink-0 border-t border-border/50 sm:border-t-0 bg-background/20 mt-auto">
               <TradePanel user={user} company={selected} price={displayPrice} defaultAction={tradeAction} onTradeSuccess={setUser} />
             </div>
           </div>
 
-          <div className={`flex-1 overflow-y-auto custom-scrollbar ${mainTab === "options" ? "flex flex-col" : "hidden"} sm:flex sm:flex-col ${mainTab !== "options" ? "sm:hidden" : ""}`}>
+          <div className={`flex-1 flex flex-col ${mainTab === "options" ? "flex" : "hidden"} sm:flex ${mainTab !== "options" ? "sm:hidden" : ""}`}>
             <OptionsChain
               symbol={selected.symbol} company={selected}
               user={user} underlyingPrice={displayPrice ?? 0}
@@ -830,6 +832,8 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
             />
           </div>
         </motion.div>
+
+        </div> {/* End Universal Scrolling Wrapper */}
 
         {/* Premium Mobile Nav */}
         <nav className="sm:hidden flex border-t border-border bg-background/90 backdrop-blur-2xl flex-shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
