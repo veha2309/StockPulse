@@ -53,15 +53,15 @@ const TradePanel = memo(({ user, company, price, defaultAction, onTradeSuccess }
       {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
       <div className="px-4 sm:px-10 py-4 sm:py-8 border-t border-border bg-background/50 backdrop-blur-3xl z-20">
         <form onSubmit={handleTrade}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-8 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-8 items-end">
             <div className="col-span-1 md:col-span-1">
-              <label className="text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase mb-2 sm:mb-3 block px-1">Order Interface</label>
+              <label className="text-xs font-black tracking-[0.2em] text-muted-foreground uppercase mb-2 sm:mb-3 block px-1">Order Interface</label>
               <div className="flex bg-secondary p-1 rounded-2xl border border-border shadow-inner">
                 <button 
                   type="button" 
                   onClick={() => setAction("buy")}  
                   className={cn(
-                    "flex-1 text-[10px] font-black uppercase tracking-widest rounded-xl py-3 transition-all",
+                    "flex-1 text-xs font-black uppercase tracking-widest rounded-xl py-3 transition-all",
                     action === "buy" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   )}
                 >
@@ -71,7 +71,7 @@ const TradePanel = memo(({ user, company, price, defaultAction, onTradeSuccess }
                   type="button" 
                   onClick={() => setAction("sell")} 
                   className={cn(
-                    "flex-1 text-[10px] font-black uppercase tracking-widest rounded-xl py-3 transition-all",
+                    "flex-1 text-xs font-black uppercase tracking-widest rounded-xl py-3 transition-all",
                     action === "sell" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   )}
                 >
@@ -81,7 +81,7 @@ const TradePanel = memo(({ user, company, price, defaultAction, onTradeSuccess }
             </div>
 
             <div className="col-span-1 md:col-span-1">
-              <label htmlFor="trade-amount" className="text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase mb-2 sm:mb-3 block px-1">Batch Quantity</label>
+              <label htmlFor="trade-amount" className="text-xs font-black tracking-[0.2em] text-muted-foreground uppercase mb-2 sm:mb-3 block px-1">Batch Quantity</label>
               <div className="relative group">
                 <input 
                   id="trade-amount" 
@@ -94,7 +94,7 @@ const TradePanel = memo(({ user, company, price, defaultAction, onTradeSuccess }
                 />
                 <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-3 pointer-events-none opacity-40">
                    <div className="h-4 w-[1px] bg-border" />
-                   <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none">{company.symbol.split(':')[1] || company.symbol}</span>
+                   <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest leading-none">{company.symbol.split(':')[1] || company.symbol}</span>
                 </div>
                 <div className="absolute inset-0 bg-primary/5 opacity-0 group-focus-within:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
               </div>
@@ -103,7 +103,7 @@ const TradePanel = memo(({ user, company, price, defaultAction, onTradeSuccess }
             <div className="col-span-1 md:col-span-1">
                <div className="bg-secondary/40 border border-border rounded-2xl p-3 sm:p-4 flex flex-col justify-between h-[48px] sm:h-[52px]">
                  <div className="flex justify-between items-center">
-                   <span className="text-[8px] font-black text-muted-foreground uppercase tracking-[0.15em] opacity-60">Estimated Cost</span>
+                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] opacity-60">Estimated Cost</span>
                    <motion.span 
                     key={cost}
                     initial={{ scale: 0.95, opacity: 0.5 }}
@@ -131,7 +131,7 @@ const TradePanel = memo(({ user, company, price, defaultAction, onTradeSuccess }
                 type="submit" 
                 disabled={disabled}
                 className={cn(
-                  "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all relative overflow-hidden group shadow-2xl",
+                  "w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all relative overflow-hidden group shadow-2xl",
                   action === "buy" ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground",
                   disabled ? "opacity-30 cursor-not-allowed grayscale" : "hover:scale-[1.02] active:scale-[0.98] hover:-translate-y-1"
                 )}

@@ -23,7 +23,7 @@ const ContractRow = memo(({ c, type, underlyingPrice, onSelect, disabled, idx }:
       onClick={() => !disabled && onSelect(c, type)}
       style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
       className={cn(
-        "border-b border-border text-[11px] transition-all relative group",
+        "border-b border-border text-sm transition-all relative group",
         disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-primary/5",
         itm && (type === "calls" ? "bg-emerald-500/5 dark:bg-emerald-500/10 shadow-[inset_4px_0_0_0_#10b981]" : "bg-destructive/5 dark:bg-destructive/10 shadow-[inset_4px_0_0_0_#ef4444]")
       )}
@@ -116,7 +116,11 @@ function BuyModal({ contract, optionType, underlyingSymbol, user, onClose, onSuc
           </div>
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
             <Calendar size={12} />
-            Expiry: {new Date(contract.expiration * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            Expiry: {(() => {
+              const d = new Date(contract.expiration * 1000);
+              const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+              return `${String(d.getDate()).padStart(2, '0')}-${months[d.getMonth()]}-${d.getFullYear()}`;
+            })()}
           </p>
         </div>
 
@@ -253,8 +257,8 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
     const fetchOptions = async (silent = false) => {
         if (!silent) setLoading(true);
         const url = selectedExpiry
-          ? `/api/options?symbol=${symbol}&expiry=${encodeURIComponent(selectedExpiry)}`
-          : `/api/options?symbol=${symbol}`;
+          ? `/api/options?symbol=${encodeURIComponent(symbol)}&expiry=${encodeURIComponent(selectedExpiry)}`
+          : `/api/options?symbol=${encodeURIComponent(symbol)}`;
         
         try {
             const r = await fetch(url);
@@ -316,7 +320,7 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col h-full overflow-hidden bg-background/50 backdrop-blur-xl">
+      <div className="flex flex-col min-h-full bg-background/50 backdrop-blur-xl">
 
         {/* Market closed banner */}
         <AnimatePresence>
@@ -334,8 +338,8 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
                 className="text-amber-500 text-lg relative"
               >🌙</motion.span>
               <div className="relative">
-                <p className="text-amber-500 text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1">Market Closed</p>
-                <p className="text-muted-foreground text-[10px] font-medium leading-none">Showing historical data · Trading pauses until market opens</p>
+                <p className="text-amber-500 text-xs font-black uppercase tracking-[0.2em] leading-none mb-1">Market Closed</p>
+                <p className="text-muted-foreground text-xs font-medium leading-none">Showing historical data · Trading pauses until market opens</p>
               </div>
             </motion.div>
           )}
@@ -347,7 +351,7 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
             <button 
               onClick={() => setTab("calls")} 
               className={cn(
-                "px-8 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                "px-8 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
                 tab === "calls" ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -356,7 +360,7 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
             <button 
               onClick={() => setTab("puts")}  
               className={cn(
-                "px-8 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all",
+                "px-8 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
                 tab === "puts" ? "bg-destructive text-white shadow-lg shadow-destructive/20" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -371,7 +375,7 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
               <select
                 value={selectedExpiry ?? ""}
                 onChange={e => setSelectedExpiry(e.target.value || null)}
-                className="appearance-none bg-secondary/80 border border-border text-[11px] font-extrabold px-6 pr-12 py-2.5 rounded-2xl text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer hover:border-primary/30"
+                className="appearance-none bg-secondary/80 border border-border text-sm font-extrabold px-6 pr-12 py-2.5 rounded-2xl text-foreground focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer hover:border-primary/30"
               >
                 {expiryDates.map(d => <option key={d} value={d} className="bg-background">{d}</option>)}
               </select>
@@ -381,13 +385,13 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
 
           <div className="ml-auto flex items-center gap-6">
             <div className="text-right hidden md:block">
-              <p className="text-[9px] text-muted-foreground font-black uppercase tracking-widest leading-none mb-1.5 opacity-60">Underlying Spot</p>
+              <p className="text-[11px] text-muted-foreground font-black uppercase tracking-widest leading-none mb-1.5 opacity-60">Underlying Spot</p>
               <p className="text-lg font-mono font-black text-foreground tracking-tighter tabular-nums">
                 ₹{underlyingPrice > 0 ? underlyingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
               </p>
             </div>
             <div className={cn(
-              "px-4 py-2 rounded-2xl border text-[10px] font-black uppercase tracking-[0.1em] flex items-center gap-2.5 shadow-sm",
+              "px-4 py-2 rounded-2xl border text-xs font-black uppercase tracking-[0.1em] flex items-center gap-2.5 shadow-sm",
               marketClosed ? "border-amber-500/20 text-amber-500 bg-amber-500/10" : "border-emerald-500/20 text-emerald-500 bg-emerald-500/10"
             )}>
               <span className={cn("w-2 h-2 rounded-full", marketClosed ? "bg-amber-500/50" : "bg-emerald-500 animate-ping")} />
@@ -396,10 +400,10 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
           </div>
         </div>
 
-        {/* Table Content */}
-        <div className="flex-1 overflow-auto custom-scrollbar">
+        {/* Table Content - Horizontal scrolling preserved, vertical scrolling handled by parent */}
+        <div className="w-full overflow-x-auto custom-scrollbar">
           {loading ? (
-            <div className="flex flex-col h-full animate-pulse p-6 gap-3 overflow-hidden">
+            <div className="flex flex-col min-h-[400px] animate-pulse p-6 gap-3 overflow-hidden">
               {/* Header Stencil */}
               <div className="flex justify-between items-center mb-4 border-b border-border pb-4 gap-4 px-2">
                  {Array.from({ length: 8 }).map((_, i) => (
@@ -420,13 +424,13 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
               ))}
             </div>
           ) : !hasData ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 py-16 text-center px-12">
+            <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 py-16 text-center px-12">
               <div className="p-6 rounded-full bg-secondary shadow-inner opacity-40">
                 <Monitor size={48} className="text-muted-foreground" />
               </div>
               <div>
-                <p className="text-foreground text-xs font-black uppercase tracking-widest mb-2">No Active Pipeline</p>
-                <p className="text-muted-foreground text-[10px] font-bold leading-relaxed max-w-[240px]">
+                <p className="text-foreground text-sm font-black uppercase tracking-widest mb-2">No Active Pipeline</p>
+                <p className="text-muted-foreground text-xs font-bold leading-relaxed max-w-[280px]">
                   {marketClosed
                     ? "Cache is empty for this timeframe. Real-time stream restarts 9:15 AM IST."
                     : "No options metadata received for this underlying instrument."}
@@ -434,9 +438,9 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
               </div>
             </div>
           ) : (
-            <table className="w-full text-left min-w-[900px] border-separate border-spacing-0">
+            <table className="w-full text-left min-w-[700px] border-separate border-spacing-0">
               <thead className="sticky top-0 bg-background/80 backdrop-blur-xl z-20">
-                <tr className="text-[9px] font-black tracking-[0.15em] text-muted-foreground uppercase border-b border-border">
+                <tr className="text-[11px] font-black tracking-[0.15em] text-muted-foreground uppercase border-b border-border">
                   <th className="px-4 py-3 border-b border-border font-black">Strike Price</th>
                   <th className="px-4 py-3 border-b border-border font-black">LTP</th>
                   <th className="px-4 py-3 border-b border-border font-black">Bid</th>
@@ -465,7 +469,7 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
 
         {marketClosed && hasData && (
           <div className="px-6 py-4 border-t border-border flex-shrink-0 bg-background/40">
-            <p className="text-[9px] text-muted-foreground font-black text-center uppercase tracking-[0.25em] opacity-60">
+            <p className="text-[11px] text-muted-foreground font-black text-center uppercase tracking-[0.25em] opacity-60">
               Validated Endpoint · End-of-Day Snapshot · Next session live at 03:45 UTC
             </p>
           </div>

@@ -10,7 +10,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   if (!active || !payload?.length) return null;
   return (
     <div className="glass-premium rounded-2xl px-4 py-3 shadow-2xl border-primary/20 bg-background/80">
-      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-60">{label}</p>
+      <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-60">{label}</p>
       <p className="text-foreground font-black text-lg tabular-nums">₹{payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
     </div>
   );
@@ -27,7 +27,7 @@ const MarketClosed = () => (
     </div>
     <div>
       <p className="text-foreground text-sm font-black uppercase tracking-[0.2em] mb-2 leading-none">Market Halted</p>
-      <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+      <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest leading-relaxed">
         Trading hours: 09:15 – 15:30 IST<br/>
         <span className="opacity-50">Real-time telemetry paused</span>
       </p>
@@ -53,7 +53,7 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
           <button 
             onClick={() => setChartType("area")}   
             className={cn(
-               "px-3 sm:px-6 py-1.5 sm:py-2 text-[8px] sm:text-[10px] font-black uppercase tracking-widest rounded-lg sm:rounded-xl transition-all",
+               "px-3 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-lg sm:rounded-xl transition-all",
                chartType === "area" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -62,7 +62,7 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
           <button 
             onClick={() => setChartType("candle")} 
             className={cn(
-               "px-3 sm:px-6 py-1.5 sm:py-2 text-[8px] sm:text-[10px] font-black uppercase tracking-widest rounded-lg sm:rounded-xl transition-all",
+               "px-3 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-lg sm:rounded-xl transition-all",
                chartType === "candle" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -72,7 +72,7 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
         
         <div className="hidden xs:flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-background/50 border border-border/50 shadow-sm">
            <Activity size={12} className="text-primary sm:w-3.5 sm:h-3.5" />
-           <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-muted-foreground">Neural</span>
+           <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-muted-foreground">Neural</span>
         </div>
       </div>
 
@@ -116,7 +116,7 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
                   <CartesianGrid strokeDasharray="4 4" stroke="currentColor" className="text-muted-foreground/5" vertical={false} />
                   <XAxis 
                     dataKey="time" 
-                    tick={{ fill: "currentColor", fontSize: 9, fontWeight: 900 }} 
+                    tick={{ fill: "currentColor", fontSize: 11, fontWeight: 900 }} 
                     className="text-muted-foreground/60 uppercase tracking-widest"
                     interval="preserveStartEnd" 
                     axisLine={false} 
@@ -125,7 +125,7 @@ export default function ChartArea({ chartType, setChartType, chartData, candleDa
                   />
                   <YAxis 
                     domain={["auto", "auto"]} 
-                    tick={{ fill: "currentColor", fontSize: 9, fontWeight: 900 }} 
+                    tick={{ fill: "currentColor", fontSize: 11, fontWeight: 900 }} 
                     className="text-muted-foreground/60 tabular-nums"
                     tickFormatter={v => `₹${v.toLocaleString()}`} 
                     width={55} 

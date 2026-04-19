@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, TrendingUp, Wallet, Star as StarIcon, LogOut, ChevronRight, Search, Activity, Target, Plus } from "lucide-react";
+import { Menu, X, TrendingUp, Wallet, Star as StarIcon, LogOut, ChevronRight, Search, Activity, Target, Plus, Sparkles, Send, AlertCircle } from "lucide-react";
+import { getAIInsight } from "@/app/actions/ai-insight";
 import NeuralBackground from "@/components/ui/NeuralBackground";
 import RechargeModal from "./RechargeModal";
 import ChartArea from "./ChartArea";
@@ -50,15 +51,40 @@ const sidebarRightVariants = {
 /* ── helpers ── */
 function favKey(email: string) { return `stockpulse_favs_${email}`; }
 
-function loadFavs(email: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(favKey(email));
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
+interface FavData {
+  symbols: string[];
+  registry?: Company[];
 }
 
-function saveFavs(email: string, favs: Set<string>) {
-  localStorage.setItem(favKey(email), JSON.stringify([...favs]));
+function loadFavs(email: string): { symbols: Set<string>; registry: Record<string, Company> } {
+  try {
+    const raw = localStorage.getItem(favKey(email));
+    if (!raw) return { symbols: new Set(), registry: {} };
+    const data = JSON.parse(raw) as (string[] | FavData);
+    
+    // Compatibility: If old format (just string array)
+    if (Array.isArray(data)) {
+      return { symbols: new Set(data), registry: {} };
+    }
+    
+    const registry: Record<string, Company> = {};
+    (data.registry || []).forEach(c => { registry[c.symbol] = c; });
+    
+    return { 
+      symbols: new Set(data.symbols || []), 
+      registry 
+    };
+  } catch { 
+    return { symbols: new Set(), registry: {} }; 
+  }
+}
+
+function saveFavs(email: string, symbols: Set<string>, registry: Record<string, Company>) {
+  const data: FavData = {
+    symbols: Array.from(symbols),
+    registry: Object.values(registry).filter(c => symbols.has(c.symbol))
+  };
+  localStorage.setItem(favKey(email), JSON.stringify(data));
 }
 
 /* ── Star icon ── */
@@ -113,10 +139,13 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
   const [results, setResults] = useState<Company[]>(COMPANIES);
   const [searching, setSearching] = useState(false);
   const [tab, setTab] = useState<SidebarTab>("all");
-  const [favs, setFavs] = useState<Set<string>>(() => loadFavs(userEmail));
+  const [favs, setFavs] = useState<Set<string>>(() => loadFavs(userEmail).symbols);
+  const [customRegistry, setCustomRegistry] = useState<Record<string, Company>>(() => loadFavs(userEmail).registry);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { saveFavs(userEmail, favs); }, [favs, userEmail]);
+  useEffect(() => { 
+    saveFavs(userEmail, favs, customRegistry); 
+  }, [favs, customRegistry, userEmail]);
 
   useEffect(() => {
     const q = query.trim();
@@ -133,18 +162,41 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
     }, 350);
   }, [query]);
 
-  function toggleFav(symbol: string, e: React.MouseEvent) {
+  function toggleFav(c: Company, e: React.MouseEvent) {
     e.stopPropagation();
+    const symbol = c.symbol;
+    const isDefault = COMPANIES.some(x => x.symbol === symbol);
+
     setFavs(prev => {
       const next = new Set(prev);
-      next.has(symbol) ? next.delete(symbol) : next.add(symbol);
+      const isAdding = !next.has(symbol);
+      
+      if (isAdding) {
+        next.add(symbol);
+        // If it's a searched/custom asset, add its metadata to registry
+        if (!isDefault) {
+          setCustomRegistry(reg => ({ ...reg, [symbol]: c }));
+        }
+      } else {
+        next.delete(symbol);
+        // We can keep it in registry even if unstarred, or clean it up. Let's keep for stability.
+      }
       return next;
     });
   }
 
-  const baseList = query.trim() ? results : COMPANIES;
-  const showList = tab === "favorites" ? baseList.filter(c => favs.has(c.symbol)) : baseList;
   const isFavsTab = tab === "favorites";
+  
+  // Merge default companies with any custom starred companies to ensure full list for rendering
+  const unifiedBase = [...COMPANIES];
+  Object.values(customRegistry).forEach(c => {
+    if (!unifiedBase.some(x => x.symbol === c.symbol)) {
+      unifiedBase.push(c);
+    }
+  });
+
+  const baseList = query.trim() ? results : unifiedBase;
+  const showList = isFavsTab ? unifiedBase.filter(c => favs.has(c.symbol)) : baseList;
 
   return (
     <div className={cn("flex flex-col flex-1 overflow-hidden", className)}>
@@ -152,7 +204,7 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
         {(["all", "favorites"] as SidebarTab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn(
-              "flex-1 pb-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative",
+              "flex-1 pb-3 text-xs font-black uppercase tracking-[0.2em] transition-all relative",
               tab === t ? "text-primary" : "text-muted-foreground hover:text-foreground"
             )}>
             {t === "favorites" ? "Starred" : "All Assets"}
@@ -171,7 +223,7 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
             placeholder={isFavsTab ? "Filter starred…" : "Quick search…"}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="w-full bg-secondary/80 border border-border rounded-2xl pl-10 pr-4 py-2.5 text-[11px] font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all md:text-sm"
+            className="w-full bg-secondary/80 border border-border rounded-2xl pl-10 pr-4 py-2.5 text-sm font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
           />
           {searching && (
             <span className="absolute right-3.5 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -190,7 +242,7 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
             <div className="p-4 rounded-full bg-secondary">
               <StarIcon size={24} className="text-muted-foreground" />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-loose">
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground leading-loose">
               No favorites tracked.<br />
               Mark assets with <span className="text-amber-500">★</span> for quick access.
             </p>
@@ -216,7 +268,7 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border-transparent"
               )}>
               <button
-                onClick={e => toggleFav(c.symbol, e)}
+                onClick={e => toggleFav(c, e)}
                 className={cn(
                   "flex-shrink-0 p-1.5 rounded-lg transition-all",
                   isFav
@@ -227,17 +279,17 @@ const CompanyList = memo(({ selected, onSelect, userEmail, className }: {
               </button>
 
               <div className="flex-1 min-w-0">
-                <p className={cn("text-xs font-black leading-tight truncate uppercase tracking-tighter", isActive ? "text-primary" : "text-foreground")}>{c.name}</p>
+                <p className={cn("text-sm font-black leading-tight truncate uppercase tracking-tighter", isActive ? "text-primary" : "text-foreground")}>{c.name}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60">{c.sector}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{c.sector}</span>
                 </div>
               </div>
 
               <span className={cn(
-                "text-[9px] font-mono font-black flex-shrink-0 px-2 py-0.5 rounded-lg border",
+                "text-[11px] font-mono font-black flex-shrink-0 px-2 py-0.5 rounded-lg border",
                 isActive ? "text-primary bg-primary/10 border-primary/20" : "text-muted-foreground bg-secondary/50 border-border/50"
               )}>
-                {c.symbol.replace("NSE:", "")}
+                {c.symbol.replace("NSE:", "").replace("BSE:", "")}
               </span>
             </motion.div>
           );
@@ -259,22 +311,65 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
   const [wsReady, setWsReady] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("chart");
   const [tradeAction, setTradeAction] = useState<"buy" | "sell">("buy");
-  const [headerFavs, setHeaderFavs] = useState<Set<string>>(() => loadFavs(initialUser?.email || ""));
+  const [headerFavs, setHeaderFavs] = useState<Set<string>>(() => loadFavs(initialUser?.email || "").symbols);
+  const [headerRegistry, setHeaderRegistry] = useState<Record<string, Company>>(() => loadFavs(initialUser?.email || "").registry);
   const [mobileTab, setMobileTab] = useState<MobileTab>("chart");
   const [marketsOpen, setMarketsOpen] = useState(false);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
 
+  /* ── AI Insight State ── */
+  const [aiTicker, setAiTicker] = useState("");
+  const [aiResult, setAiResult] = useState<{ 
+    summary?: string; 
+    sentimentTag?: "BULLISH" | "BEARISH" | "NEUTRAL"; 
+    error?: string 
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  async function handleAIInsight(e?: React.FormEvent) {
+    e?.preventDefault();
+    const ticker = aiTicker.trim() || selected.symbol.replace("NSE:", "");
+    if (!ticker) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const result = await getAIInsight(ticker);
+      setAiResult(result);
+    } catch {
+      setAiResult({ error: "Network error. Please check your connection." });
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (!marketsOpen) setHeaderFavs(loadFavs(user.email));
+    if (!marketsOpen) {
+      const { symbols, registry } = loadFavs(user.email);
+      setHeaderFavs(symbols);
+      setHeaderRegistry(registry);
+    }
   }, [marketsOpen, user.email]);
 
   function toggleHeaderFav(e: React.MouseEvent) {
     e.stopPropagation();
+    const symbol = selected.symbol;
+    const isDefault = COMPANIES.some(x => x.symbol === symbol);
+
     setHeaderFavs(prev => {
       const next = new Set(prev);
-      next.has(selected.symbol) ? next.delete(selected.symbol) : next.add(selected.symbol);
-      saveFavs(user.email, next);
+      const isAdding = !next.has(symbol);
+      let nextReg = { ...headerRegistry };
+
+      if (isAdding) {
+        next.add(symbol);
+        if (!isDefault) nextReg[symbol] = selected;
+      } else {
+        next.delete(symbol);
+      }
+      
+      setHeaderRegistry(nextReg);
+      saveFavs(user.email, next, nextReg);
       return next;
     });
   }
@@ -291,13 +386,13 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
       if (!data?.user) return;
 
       if (Array.isArray(data.globalFavorites) && data.globalFavorites.length > 0) {
-        const current = loadFavs(user.email);
+        const { symbols: current, registry: reg } = loadFavs(user.email);
         let changed = false;
         for (const sym of data.globalFavorites) {
           if (!current.has(sym)) { current.add(sym); changed = true; }
         }
         if (changed) {
-          saveFavs(user.email, current);
+          saveFavs(user.email, current, reg);
           setHeaderFavs(new Set(current));
         }
       }
@@ -319,7 +414,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
   const fetchHistory = useCallback(async (symbol: string, silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const res = await fetch(`/api/stock?symbol=${symbol}`);
+      const res = await fetch(`/api/stock?symbol=${encodeURIComponent(symbol)}`);
       if (!res.ok) throw new Error("API response not OK");
       const data = await res.json();
       setQuote(data.quote);
@@ -339,6 +434,12 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
   }, [selected, fetchHistory]);
 
   function handleSelectCompany(c: Company | string) {
+    // Clear state to prevent stale data (like Nifty 50) while loading new asset
+    setQuote(null);
+    setChartData([]);
+    setCandleData([]);
+    setLoading(true);
+
     if (typeof c === "string") {
       const found = COMPANIES.find(x => x.symbol === c);
       if (found) setSelected(found);
@@ -447,7 +548,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
           </div>
           <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setEditing(true)}>
             <span className="live-dot flex-shrink-0" />
-            <p className="text-[9px] text-muted-foreground font-black uppercase tracking-widest group-hover:text-primary transition-colors">
+            <p className="text-[11px] text-muted-foreground font-black uppercase tracking-widest group-hover:text-primary transition-colors">
               {user.name.split(" ")[0]} · Active
             </p>
           </div>
@@ -460,7 +561,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
         <div className="px-4 py-4 border-t border-border">
           <button
             onClick={onLogout}
-            className="w-full text-[9px] font-black uppercase tracking-widest text-muted-foreground hover:text-destructive transition-all py-3 rounded-xl hover:bg-destructive/5 flex items-center justify-center gap-2 border border-transparent hover:border-destructive/20"
+            className="w-full text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-destructive transition-all py-3 rounded-xl hover:bg-destructive/5 flex items-center justify-center gap-2 border border-transparent hover:border-destructive/20"
           >
             <LogOut size={13} /> End Session
           </button>
@@ -475,7 +576,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-3">
-                <h1 className="text-sm sm:text-xl font-black text-foreground leading-none truncate tracking-tight uppercase max-w-[120px] sm:max-w-none">{selected.name}</h1>
+                <h1 className="text-base sm:text-xl font-black text-foreground leading-none truncate tracking-tight uppercase max-w-[180px] sm:max-w-none">{selected.name}</h1>
                 <button
                   onClick={toggleHeaderFav}
                   className={cn(
@@ -486,8 +587,8 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
                 </button>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5 sm:mt-1">
-                <span className="text-[7px] sm:text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-md border border-primary/15 tracking-widest">{selected.symbol.replace("NSE:", "")}</span>
-                <p className="hidden sm:block text-[9px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-50 truncate">{selected.sector}</p>
+                <span className="text-[10px] sm:text-[11px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded-md border border-primary/15 tracking-widest">{selected.symbol.replace("NSE:", "").replace("BSE:", "")}</span>
+                <p className="hidden sm:block text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-50 truncate">{selected.sector}</p>
               </div>
             </div>
           </motion.div>
@@ -508,7 +609,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
                 </div> */}
 
             {/* Premium Wallet */}
-            <div className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-1 py-1.5 rounded-xl bg-primary/5 border border-primary/15 text-foreground font-black text-[10px] sm:text-xs shadow-[var(--shadow-glow-sm)] hover:border-primary/30 hover:bg-primary/8 transition-all group">
+            <div className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-1 py-1.5 rounded-xl bg-primary/5 border border-primary/15 text-foreground font-black text-xs sm:text-sm shadow-[var(--shadow-glow-sm)] hover:border-primary/30 hover:bg-primary/8 transition-all group">
               <Wallet size={13} className="text-primary flex-shrink-0" />
               <span className="sm:inline font-mono tabular-nums tracking-tight text-primary truncate max-w-[70px] sm:max-w-none">
                 ₹{(user.eTokens ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -545,7 +646,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className={cn(
-                  "text-[9px] sm:text-xs font-black flex items-center gap-1 px-2 py-1 rounded-lg",
+                  "text-[11px] sm:text-xs font-black flex items-center gap-1 px-2 py-1 rounded-lg",
                   isPositive
                     ? "text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_16px_rgba(16,185,129,0.15)]"
                     : "text-destructive bg-destructive/10 border border-destructive/20"
@@ -559,11 +660,115 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
           <div className="hidden sm:flex items-center gap-6 border-l border-border pl-8">
             {stats.map(s => (
               <div key={s.label} className="flex-shrink-0 group">
-                <p className="text-[8px] text-muted-foreground uppercase font-black tracking-widest leading-none mb-1.5 opacity-40">{s.label}</p>
-                <p className="text-xs font-black text-foreground tabular-nums tracking-tight group-hover:text-primary transition-colors">{s.value}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest leading-none mb-1.5 opacity-40">{s.label}</p>
+                <p className="text-sm font-black text-foreground tabular-nums tracking-tight group-hover:text-primary transition-colors">{s.value}</p>
               </div>
             ))}
           </div>
+        </motion.div>
+
+        {/* ── AI Insight Panel ── */}
+        <motion.div variants={itemVariants} className="px-4 sm:px-8 py-3 sm:py-4 border-b border-border flex-shrink-0 overflow-hidden">
+          <form onSubmit={handleAIInsight} className="glass-premium rounded-2xl p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                <Sparkles size={14} className="text-primary" />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground">AI Sentiment Analysis</h3>
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder={`Ticker e.g. ${selected.symbol.replace("NSE:", "")}`}
+                  value={aiTicker}
+                  onChange={e => setAiTicker(e.target.value.toUpperCase())}
+                  className="w-full bg-secondary/80 border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-mono tracking-tight uppercase"
+                  disabled={aiLoading}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={aiLoading}
+                className="btn-premium flex items-center gap-2 !px-4 !py-2.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none"
+              >
+                {aiLoading ? (
+                  <span className="w-3.5 h-3.5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send size={13} />
+                )}
+                <span className="hidden sm:inline">Analyze</span>
+              </button>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {aiLoading && (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={quickFade}
+                  className="mt-3 flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/10"
+                >
+                  <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Generating insight…</p>
+                </motion.div>
+              )}
+
+              {!aiLoading && aiResult?.error && (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={premiumTransition}
+                  className="mt-3 flex items-start gap-3 px-4 py-3 rounded-xl bg-destructive/5 border border-destructive/15"
+                >
+                  <AlertCircle size={14} className="text-destructive flex-shrink-0 mt-0.5" />
+                  <p className="text-xs font-bold text-destructive/90 leading-relaxed">{aiResult.error}</p>
+                </motion.div>
+              )}
+
+              {!aiLoading && aiResult?.summary && (
+                <motion.div
+                  key="result"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={premiumTransition}
+                  className="mt-3 relative"
+                >
+                  <div className="px-4 py-3 rounded-xl bg-secondary/60 border border-border/80 relative overflow-hidden">
+                    {/* Dynamic accent color based on sentiment */}
+                    <div className={cn(
+                      "absolute top-0 left-0 w-1 h-full rounded-full transition-colors duration-500",
+                      aiResult.sentimentTag === "BULLISH" ? "bg-emerald-500" :
+                      aiResult.sentimentTag === "BEARISH" ? "bg-destructive" : "bg-primary"
+                    )} />
+                    
+                    <div className="flex items-center justify-between mb-2 pl-3">
+                      <div className={cn(
+                        "px-2.5 py-1 rounded-md text-[10px] font-black tracking-widest border",
+                        aiResult.sentimentTag === "BULLISH" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                        aiResult.sentimentTag === "BEARISH" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                        "bg-primary/10 text-primary border-primary/20"
+                      )}>
+                        {aiResult.sentimentTag}
+                      </div>
+                    </div>
+
+                    <p className="text-xs sm:text-sm font-medium text-foreground/90 leading-relaxed pl-3">
+                      {aiResult.summary}
+                    </p>
+                    <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 pl-3">AI-generated · Not financial advice</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </form>
         </motion.div>
 
         {/* Premium Tab Bar — also has Holdings button on tablet (sm–xl) */}
@@ -575,7 +780,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
             ] as { id: MainTab; label: string }[]).map(t => (
               <button key={t.id} onClick={() => setMainTab(t.id)}
                 className={cn(
-                  "px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] border-b-2 transition-all relative",
+                  "px-5 py-3.5 text-xs font-black uppercase tracking-[0.2em] border-b-2 transition-all relative",
                   mainTab === t.id
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:bg-primary/5"
@@ -595,7 +800,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
           {/* Holdings button — only visible on tablet (sm → xl), hidden when right sidebar is present */}
           <button
             onClick={() => setPortfolioOpen(true)}
-            className="xl:hidden flex items-center gap-2 px-4 py-2 mr-1 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
+            className="xl:hidden flex items-center gap-2 px-4 py-2 mr-1 rounded-xl text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
           >
             <Wallet size={14} />
             <span>Holdings</span>
@@ -617,7 +822,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
             </div>
           </div>
 
-          <div className={`flex-1 overflow-hidden ${mainTab === "options" ? "flex flex-col" : "hidden"} sm:flex sm:flex-col ${mainTab !== "options" ? "sm:hidden" : ""}`}>
+          <div className={`flex-1 overflow-y-auto custom-scrollbar ${mainTab === "options" ? "flex flex-col" : "hidden"} sm:flex sm:flex-col ${mainTab !== "options" ? "sm:hidden" : ""}`}>
             <OptionsChain
               symbol={selected.symbol} company={selected}
               user={user} underlyingPrice={displayPrice ?? 0}
@@ -629,10 +834,10 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
         {/* Premium Mobile Nav */}
         <nav className="sm:hidden flex border-t border-border bg-background/90 backdrop-blur-2xl flex-shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {[
-            { id: "markets", label: "Markets", icon: <TrendingUp size={18} /> },
-            { id: "chart", label: "Insight", icon: <Activity size={18} /> },
-            { id: "options", label: "Chain", icon: <Target size={18} /> },
-            { id: "portfolio", label: "Portfolio", icon: <Wallet size={18} /> },
+            { id: "markets", label: "Markets", icon: <TrendingUp size={20} /> },
+            { id: "chart", label: "Insight", icon: <Activity size={20} /> },
+            { id: "options", label: "Chain", icon: <Target size={20} /> },
+            { id: "portfolio", label: "Portfolio", icon: <Wallet size={20} /> },
           ].map(tab => (
             <button key={tab.id}
               onClick={() => {
@@ -642,7 +847,7 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
                 setMainTab(tab.id as MainTab);
               }}
               className={cn(
-                "flex-1 flex flex-col items-center py-3 gap-1 text-[9px] font-black uppercase tracking-widest relative transition-colors",
+                "flex-1 flex flex-col items-center py-3 gap-1 text-[11px] font-black uppercase tracking-widest relative transition-colors",
                 activeMobileTab === tab.id ? "text-primary" : "text-muted-foreground"
               )}>
               {activeMobileTab === tab.id && (

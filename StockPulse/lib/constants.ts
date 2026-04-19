@@ -3,8 +3,16 @@ import type { Company } from "./types";
 /** Default stock list shown in the sidebar before any search.
  *  Covers all Nifty 50 constituents + a few midcap favourites.
  *  Symbol format: NSE:<TICKER>  (auto-converted to <TICKER>.NS by the stock API).
+ *  Index format:  NSE:NIFTY_50, BSE:SENSEX  (mapped to Yahoo ^NSEI, ^BSESN etc.)
  */
 export const COMPANIES: Company[] = [
+  // ── Indian Market Indices ──
+  { name: "NIFTY 50",         symbol: "NSE:NIFTY_50",        sector: "Index" },
+  { name: "NIFTY Bank",       symbol: "NSE:NIFTY_BANK",      sector: "Index" },
+  { name: "NIFTY IT",         symbol: "NSE:NIFTY_IT",        sector: "Index" },
+  { name: "NIFTY Midcap 50",  symbol: "NSE:NIFTY_MIDCAP_50", sector: "Index" },
+  { name: "SENSEX",           symbol: "BSE:SENSEX",          sector: "Index" },
+
   // Nifty 50 — Financial Services
   { name: "HDFC Bank",         symbol: "NSE:HDFCBANK",    sector: "Finance" },
   { name: "ICICI Bank",        symbol: "NSE:ICICIBANK",   sector: "Finance" },
@@ -71,4 +79,11 @@ export const COMPANIES: Company[] = [
   // Others
   { name: "IndusInd Bank",     symbol: "NSE:INDUSINDBK",  sector: "Finance" },
   { name: "Tata Consumer",     symbol: "NSE:TATACONSUM",  sector: "Consumer" },
+
+  // ── BSE Variants (Bombay Stock Exchange) ──
+  { name: "HDFC Bank (BSE)",   symbol: "BSE:HDFCBANK",    sector: "Finance" },
+  { name: "Reliance (BSE)",    symbol: "BSE:RELIANCE",    sector: "Energy" },
+  { name: "TCS (BSE)",         symbol: "BSE:TCS",         sector: "Technology" },
+  { name: "Infosys (BSE)",     symbol: "BSE:INFY",        sector: "Technology" },
+  { name: "SBI (BSE)",         symbol: "BSE:SBIN",        sector: "Finance" },
 ];

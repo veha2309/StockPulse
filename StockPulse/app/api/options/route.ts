@@ -2,21 +2,85 @@ import { NextResponse } from 'next/server';
 import https from 'https';
 import http from 'http';
 
-function fetchURL(url: string): Promise<any> {
+function fetchURL(url: string, timeoutMs = 6000): Promise<any> {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith("https") ? https : http;
-    mod.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
+    const req = mod.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
       let data = "";
       res.on("data", chunk => data += chunk);
       res.on("end", () => {
         try { resolve(JSON.parse(data)); }
         catch { reject(new Error("Invalid JSON")); }
       });
-    }).on("error", reject);
+    });
+    req.on("error", reject);
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      reject(new Error("Request timed out"));
+    });
   });
 }
 
+/** Fetch with automatic failover: query1 → query2 */
+async function fetchWithFailsafe(path: string): Promise<any> {
+  try {
+    return await fetchURL(`https://query1.finance.yahoo.com${path}`);
+  } catch (err) {
+    console.warn(`[options api] query1 failed, trying query2:`, (err as Error).message);
+    try {
+        return await fetchURL(`https://query2.finance.yahoo.com${path}`);
+    } catch (err2) {
+        console.warn(`[options api] query2 also failed.`);
+        throw err2;
+    }
+  }
+}
+
+async function fetchFromGoogleFinance(originalSymbol: string): Promise<number | null> {
+    const gSym = toGoogleSymbol(originalSymbol);
+    try {
+      const url = `https://www.google.com/finance/quote/${gSym}`;
+      const html = await new Promise<string>((resolve, reject) => {
+        https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
+          let d = "";
+          res.on("data", c => d += c);
+          res.on("end", () => resolve(d));
+        }).on("error", reject);
+      });
+      const match = html.match(/data-last-price="([0-9.]+)"/) || html.match(/itemprop="price" content="([0-9.]+)"/);
+      return match ? parseFloat(match[1]) : null;
+    } catch (e) {
+      return null;
+    }
+}
+
+/** Index symbol → Yahoo Finance symbol mapping */
+const INDEX_MAP: Record<string, string> = {
+  "NSE:NIFTY_50":        "^NSEI",
+  "NSE:NIFTY_BANK":      "^NSEBANK",
+  "NSE:NIFTY_IT":        "^CNXIT",
+  "NSE:NIFTY_MIDCAP_50": "^NSEMDCP50",
+  "BSE:SENSEX":          "^BSESN",
+};
+
+/** Google Finance Symbol Mapping */
+const GOOGLE_MAP: Record<string, string> = {
+  "NSE:NIFTY_50":        "NIFTY_50:INDEXNSE",
+  "NSE:NIFTY_BANK":      "NIFTY_BANK:INDEXNSE",
+  "NSE:NIFTY_IT":        "NIFTY_IT:INDEXNSE",
+  "NSE:NIFTY_MIDCAP_50": "NIFTY_MIDCAP_50:INDEXNSE",
+  "BSE:SENSEX":          "SENSEX:INDEXBOM",
+};
+
+function toGoogleSymbol(symbol: string): string {
+  if (GOOGLE_MAP[symbol]) return GOOGLE_MAP[symbol];
+  if (symbol.startsWith("NSE:")) return symbol.slice(4) + ":NSE";
+  if (symbol.startsWith("BSE:")) return symbol.slice(4) + ":BOM";
+  return symbol;
+}
+
 function toYahooSymbol(symbol: string): string {
+  if (INDEX_MAP[symbol]) return INDEX_MAP[symbol];
   if (symbol.startsWith("NSE:")) return symbol.slice(4) + ".NS";
   if (symbol.startsWith("BSE:")) return symbol.slice(4) + ".BO";
   return symbol;
@@ -27,15 +91,25 @@ export async function GET(request: Request) {
   const symbol = searchParams.get('symbol');
   
   if (!symbol) return NextResponse.json({ error: "No symbol" }, { status: 400 });
-  const yfSymbol = toYahooSymbol(symbol);
-  const nseSymbol = symbol.replace("NSE:", "").replace("BSE:", "");
+    const yfSymbol = encodeURIComponent(toYahooSymbol(symbol));
+    const nseSymbol = symbol.replace("NSE:", "").replace("BSE:", "");
 
   try {
-    // 1. Get real spot price from Yahoo Finance
-    const quoteJson = await fetchURL(`https://query1.finance.yahoo.com/v8/finance/chart/${yfSymbol}?interval=1d&range=1d`);
-    const spotPrice = quoteJson?.chart?.result?.[0]?.meta?.regularMarketPrice || 0;
+    // 1. Get real spot price with Multi-Tier Failsafe
+    let spotPrice = 0;
+    try {
+        const quoteJson = await fetchWithFailsafe(`/v8/finance/chart/${yfSymbol}?interval=1d&range=1d`);
+        spotPrice = quoteJson?.chart?.result?.[0]?.meta?.regularMarketPrice || 0;
+    } catch (err) {
+        console.warn(`[options api] Yahoo failed for ${symbol}, attempting Google recovery...`);
+    }
+
+    if (!spotPrice) {
+        const googlePrice = await fetchFromGoogleFinance(symbol);
+        if (googlePrice) spotPrice = googlePrice;
+    }
     
-    if (!spotPrice) throw new Error("Could not fetch underlying price");
+    if (!spotPrice) throw new Error("Could not fetch underlying price from any source");
 
     // 2. Generate a robust Options Chain fallback
     // Since the official NSE API blocks direct Node fetch requests, this provides a 
@@ -49,14 +123,45 @@ export async function GET(request: Request) {
        if (strk > 0) strikes.push(strk);
     }
     
-    // Create an expiry date text (next Thursday)
-    const today = new Date();
-    const nextThursday = new Date();
-    nextThursday.setDate(today.getDate() + (4 - today.getDay() + 7) % 7);
-    if (today.getDay() === 4) nextThursday.setDate(today.getDate() + 7);
+    // Create a robust expiry date logic based on Indian Market standards
+    const EXPIRY_DAYS: Record<string, number> = {
+      "NSE:NIFTY_50": 4,        // Thursday
+      "NSE:NIFTY_BANK": 3,      // Wednesday
+      "NSE:NIFTY_IT": 4,        // Thursday
+      "NSE:NIFTY_MIDCAP_50": 1, // Monday
+      "BSE:SENSEX": 5,          // Friday
+    };
+
+    const targetDay = EXPIRY_DAYS[symbol] ?? 4; // Default to Thursday for stocks
     
-    const expiryStr = nextThursday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-    const expTs = Math.floor(nextThursday.getTime() / 1000);
+    const now = new Date();
+    const istOffset = 330 * 60000; // 5.5 hours in ms
+    const nowIst = new Date(now.getTime() + istOffset);
+    
+    // getUTCDay on nowIst gives us the IST day of week (0-6)
+    const istDayFromNow = nowIst.getUTCDay();
+    let daysUntil = (targetDay - istDayFromNow + 7) % 7;
+    
+    // If it's already the target day, check if we've passed 3:30 PM IST (10:00 UTC)
+    if (daysUntil === 0) {
+      const istHour = nowIst.getUTCHours();
+      const istMin = nowIst.getUTCMinutes();
+      if (istHour > 15 || (istHour === 15 && istMin > 30)) {
+        daysUntil = 7;
+      }
+    }
+    
+    const expiryDateIST = new Date(nowIst.getTime() + (daysUntil * 86400000));
+    const day = expiryDateIST.getUTCDate();
+    const monthIdx = expiryDateIST.getUTCMonth();
+    const year = expiryDateIST.getUTCFullYear();
+    
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const expiryStr = `${String(day).padStart(2, '0')}-${months[monthIdx]}-${year}`;
+    
+    // 15:30 IST is exactly 10:00 UTC
+    const finalExpiryDate = new Date(Date.UTC(year, monthIdx, day, 10, 0, 0, 0));
+    const expTs = Math.floor(finalExpiryDate.getTime() / 1000);
 
     const calls = [];
     const puts = [];

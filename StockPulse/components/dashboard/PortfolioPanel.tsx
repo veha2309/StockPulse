@@ -255,7 +255,7 @@ const PortfolioPanel = memo(({
           </div>
           <div>
             <h2 className="text-lg font-bold text-foreground">Portfolio</h2>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Live Analytics</p>
+            <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Live Analytics</p>
           </div>
         </div>
         {onClose && (
@@ -270,7 +270,7 @@ const PortfolioPanel = memo(({
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="glass-premium rounded-2xl p-3 border-border">
             <div className="flex justify-between items-center gap-1.5 min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 mb-1.5">Available Funds</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 mb-1.5">Available Funds</p>
               <button
                 onClick={onRechargeOpen}
                 className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all active:scale-90 flex-shrink-0"
@@ -284,7 +284,7 @@ const PortfolioPanel = memo(({
             </h3>
           </div>
           <div className="glass-premium rounded-2xl p-3 border-border">
-            <p className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase mb-1.5">Active Value</p>
+            <p className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase mb-1.5">Active Value</p>
             <p className="text-sm font-extrabold text-foreground tracking-tight tabular-nums break-all leading-tight">{fmt(totalCurrentValue)}</p>
           </div>
         </div>
@@ -294,7 +294,7 @@ const PortfolioPanel = memo(({
           totalPnL >= 0 ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
         )}>
           <div>
-            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Net Gain/Loss</p>
+            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Net Gain/Loss</p>
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               {totalPnL !== 0 && (
                 <span className={cn(
@@ -310,7 +310,7 @@ const PortfolioPanel = memo(({
               )}>
                 {totalPnL > 0 ? "+" : ""}{fmt(totalPnL)}
                 {totalInvested > 0 && (
-                  <span className="text-[10px] font-black ml-1.5 opacity-70">
+                  <span className="text-xs font-black ml-1.5 opacity-70">
                     ({totalPnLPct > 0 ? "+" : ""}{totalPnLPct.toFixed(2)}%)
                   </span>
                 )}
@@ -318,7 +318,7 @@ const PortfolioPanel = memo(({
             </div>
           </div>
           <div className="text-right">
-            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Invested</p>
+            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Invested</p>
             <p className="text-sm text-foreground font-bold font-mono">
               {fmt(totalInvested)}
             </p>
@@ -348,7 +348,7 @@ const PortfolioPanel = memo(({
       <div className="flex-1 overflow-y-auto">
         {tab === "holdings" && (
           <div className="py-2 px-6">
-            <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mb-4 mt-2">
+            <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase mb-4 mt-2">
               Equity Assets ({(user.portfolio ?? []).length})
             </p>
             {(user.portfolio ?? []).length > 0 ? (
@@ -375,18 +375,18 @@ const PortfolioPanel = memo(({
                               <p className="text-sm font-bold text-foreground">{COMPANIES.find(c => c.symbol === item.symbol)?.name ?? item.symbol}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className={cn(
-                                  "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                                  "text-[11px] font-bold px-1.5 py-0.5 rounded",
                                   isItemPositive ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
                                 )}>
                                   {isItemPositive ? "BULL" : "BEAR"}
                                 </span>
-                                <p className="text-[10px] text-muted-foreground font-mono">{item.amount} shares @ {fmt(item.avgBuyPrice)}</p>
+                                <p className="text-xs text-muted-foreground font-mono">{item.amount} shares @ {fmt(item.avgBuyPrice)}</p>
                               </div>
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold text-foreground font-mono">{fmt(currentValue)}</p>
                               <p className={cn(
-                                "text-[10px] font-bold font-mono mt-1",
+                                "text-xs font-bold font-mono mt-1",
                                 pnl === 0 ? "text-muted-foreground" : isItemPositive ? "text-emerald-500" : "text-red-500"
                               )}>
                                 {pnl > 0 ? "+" : ""}{fmt(pnl)}
@@ -396,7 +396,7 @@ const PortfolioPanel = memo(({
                           </div>
 
                           {(item.sl || item.tp) && (
-                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/50 text-[9px] font-bold uppercase tracking-tighter">
+                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/50 text-[11px] font-bold uppercase tracking-tighter">
                               {item.tp && <span className="text-primary flex items-center gap-1"><Target size={10} /> TP: {fmt(item.tp)}</span>}
                               {item.sl && <span className="text-amber-500 flex items-center gap-1"><History size={10} /> SL: {fmt(item.sl)}</span>}
                             </div>
@@ -404,13 +404,13 @@ const PortfolioPanel = memo(({
 
                           {/* Action buttons — always visible, not hover-only (touch screens have no hover) */}
                           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/40">
-                            <button onClick={() => handleActionClick(item.symbol, "targets")} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl transition-all border border-amber-500/20">
+                            <button onClick={() => handleActionClick(item.symbol, "targets")} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 rounded-xl transition-all border border-amber-500/20">
                               <Target size={11} /> Targets
                             </button>
-                            <button onClick={() => handleActionClick(item.symbol, "view")} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-xl transition-all border border-primary/20">
+                            <button onClick={() => handleActionClick(item.symbol, "view")} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-xl transition-all border border-primary/20">
                               <Eye size={11} /> Details
                             </button>
-                            <button onClick={() => handleActionClick(item.symbol, "sell")} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all border border-red-500/20">
+                            <button onClick={() => handleActionClick(item.symbol, "sell")} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all border border-red-500/20">
                               <ShoppingCart size={11} /> Exit
                             </button>
                           </div>
@@ -426,7 +426,7 @@ const PortfolioPanel = memo(({
               </div>
             )}
 
-            <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mb-4 mt-8">
+            <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase mb-4 mt-8">
               Derivative Contracts ({options.length})
             </p>
             {options.length > 0 ? (
@@ -442,34 +442,38 @@ const PortfolioPanel = memo(({
                     <div className="flex justify-between items-center mb-3">
                       <div className="flex items-center gap-2">
                         <span className={cn(
-                          "text-[9px] font-bold px-2 py-0.5 rounded-lg border",
+                          "text-[11px] font-bold px-2 py-0.5 rounded-lg border",
                           pos.type === "call" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"
                         )}>
                           {pos.type.toUpperCase()}
                         </span>
                         <p className="text-xs font-bold text-foreground">₹{pos.strike.toLocaleString()} Strike</p>
                       </div>
-                      <p className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">{pos.lots} LOT{pos.lots > 1 ? "S" : ""}</p>
+                      <p className="text-[11px] font-mono font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">{pos.lots} LOT{pos.lots > 1 ? "S" : ""}</p>
                     </div>
                     <div className="flex justify-between items-end">
                       <div>
-                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Underlying</p>
+                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Underlying</p>
                         <p className="text-xs font-bold text-foreground">{pos.underlyingSymbol}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Buy Premium</p>
+                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider mb-1">Buy Premium</p>
                         <p className="text-xs font-mono font-bold text-foreground">{fmt(pos.premium)}</p>
                       </div>
                     </div>
                     <div className="mt-3 pt-3 border-t border-border/50 flex justify-between items-center">
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter italic">
-                        Expires {new Date(pos.expiration * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-tighter italic">
+                        Expires {(() => {
+                          const d = new Date(pos.expiration * 1000);
+                          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                          return `${String(d.getDate()).padStart(2, '0')}-${months[d.getMonth()]}-${d.getFullYear()}`;
+                        })()}
                       </p>
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleActionOption(pos, "view")} className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-all">
                           <Eye size={12} />
                         </button>
-                        <button onClick={() => handleActionOption(pos, "sell")} className="px-3 py-1.5 text-[10px] font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-lg border border-red-500/20 transition-all">
+                        <button onClick={() => handleActionOption(pos, "sell")} className="px-3 py-1.5 text-xs font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 rounded-lg border border-red-500/20 transition-all">
                           Exit Position
                         </button>
                       </div>
@@ -479,7 +483,7 @@ const PortfolioPanel = memo(({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-10 glass-premium rounded-2xl border-dashed text-center">
-                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">No Active Options</p>
+                <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">No Active Options</p>
               </div>
             )}
           </div>
@@ -496,7 +500,7 @@ const PortfolioPanel = memo(({
               <>
                 {trades.length > 0 && (
                   <>
-                    <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase px-5 mt-2 mb-1">Equity Trades</p>
+                    <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase px-5 mt-2 mb-1">Equity Trades</p>
                     {trades.map(t => (
                       <div key={t._id} className="px-5 py-2.5 border-b border-border hover:bg-muted/30 transition-colors">
                         <div className="flex justify-between items-center">
@@ -512,8 +516,8 @@ const PortfolioPanel = memo(({
                           <p className="text-xs font-mono font-bold text-foreground">{fmt(t.total)}</p>
                         </div>
                         <div className="flex justify-between items-center mt-1">
-                          <p className="text-[10px] text-muted-foreground font-medium">{t.amount} shares @ {fmt(t.price)}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium">{fmtDate(t.timestamp)}</p>
+                          <p className="text-xs text-muted-foreground font-medium">{t.amount} shares @ {fmt(t.price)}</p>
+                          <p className="text-xs text-muted-foreground font-medium">{fmtDate(t.timestamp)}</p>
                         </div>
                       </div>
                     ))}
@@ -522,7 +526,7 @@ const PortfolioPanel = memo(({
 
                 {optionTrades.length > 0 && (
                   <>
-                    <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase px-5 mt-3 mb-1">Option Trades</p>
+                    <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase px-5 mt-3 mb-1">Option Trades</p>
                     {optionTrades.map(t => (
                       <div key={t._id} className="px-5 py-2.5 border-b border-border hover:bg-muted/30 transition-colors">
                         <div className="flex justify-between items-center">
@@ -534,7 +538,7 @@ const PortfolioPanel = memo(({
                               {t.action.toUpperCase()}
                             </span>
                             <span className={cn(
-                              "text-[10px] font-bold px-1.5 py-0.5 rounded ml-1",
+                              "text-xs font-bold px-1.5 py-0.5 rounded ml-1",
                               t.optionType === "call" ? "bg-primary/20 text-primary border border-primary/20" : "bg-destructive/20 text-destructive border border-destructive/20"
                             )}>
                               {t.optionType.toUpperCase()}
@@ -544,8 +548,8 @@ const PortfolioPanel = memo(({
                           <p className="text-xs font-mono font-bold text-foreground">{fmt(t.total)}</p>
                         </div>
                         <div className="flex justify-between items-center mt-1">
-                          <p className="text-[10px] text-muted-foreground font-medium">{t.lots} lot{t.lots > 1 ? "s" : ""} @ {fmt(t.premium)} · {t.underlyingSymbol}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium">{fmtDate(t.timestamp)}</p>
+                          <p className="text-xs text-muted-foreground font-medium">{t.lots} lot{t.lots > 1 ? "s" : ""} @ {fmt(t.premium)} · {t.underlyingSymbol}</p>
+                          <p className="text-xs text-muted-foreground font-medium">{fmtDate(t.timestamp)}</p>
                         </div>
                       </div>
                     ))}
@@ -582,11 +586,11 @@ const PortfolioPanel = memo(({
                 <X size={20} />
               </button>
               <h3 className="text-foreground font-black text-xl mb-1 tracking-tight">{COMPANIES.find(c => c.symbol === targetingSymbol)?.name || targetingSymbol}</h3>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-6 px-1">Configure Smart Bounds</p>
+              <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-6 px-1">Configure Smart Bounds</p>
 
               <div className="space-y-6 mb-8 mt-2">
                 <div>
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-primary mb-2 block px-1">Take Profit (Target)</label>
+                  <label className="text-xs uppercase font-bold tracking-widest text-primary mb-2 block px-1">Take Profit (Target)</label>
                   <div className="relative group">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground group-focus-within:text-primary transition-colors">₹</span>
                     <input type="number" value={targetTp} onChange={e => setTargetTp(e.target.value)} placeholder="0.00"
@@ -594,7 +598,7 @@ const PortfolioPanel = memo(({
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-amber-500 mb-2 block px-1">Stop Loss (Protection)</label>
+                  <label className="text-xs uppercase font-bold tracking-widest text-amber-500 mb-2 block px-1">Stop Loss (Protection)</label>
                   <div className="relative group">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground group-focus-within:text-amber-500 transition-colors">₹</span>
                     <input type="number" value={targetSl} onChange={e => setTargetSl(e.target.value)} placeholder="0.00"
@@ -631,7 +635,7 @@ const PortfolioPanel = memo(({
               {viewingLoading ? (
                 <div className="py-24 flex flex-col items-center justify-center gap-4 text-center">
                   <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Fetching Node Analytics...</p>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Fetching Node Analytics...</p>
                 </div>
               ) : viewingQuote ? (
                 <div className="p-8">
@@ -639,23 +643,23 @@ const PortfolioPanel = memo(({
                     <h3 className="text-xl font-black text-foreground leading-tight tracking-tight">{COMPANIES.find(c => c.symbol === viewingSymbol)?.name || viewingSymbol}</h3>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">{viewingSymbol}</span>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{COMPANIES.find(c => c.symbol === viewingSymbol)?.sector ?? "Equities"}</p>
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">{COMPANIES.find(c => c.symbol === viewingSymbol)?.sector ?? "Equities"}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-8">
                     <div className="bg-secondary/50 p-4 rounded-2xl border border-border">
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 leading-none">Market Price</p>
+                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 leading-none">Market Price</p>
                       <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">₹{viewingQuote.c?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                       <p className={cn(
-                        "text-[10px] font-bold mt-1.5 flex items-center gap-1",
+                        "text-xs font-bold mt-1.5 flex items-center gap-1",
                         viewingQuote.d >= 0 ? "text-emerald-500" : "text-red-500"
                       )}>
                         {viewingQuote.d >= 0 ? "▲" : "▼"} {Math.abs(viewingQuote.dp ?? 0).toFixed(2)}%
                       </p>
                     </div>
                     <div className="bg-secondary/50 p-4 rounded-2xl border border-border">
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 leading-none">Prev. Session</p>
+                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 leading-none">Prev. Session</p>
                       <p className="text-xl font-black text-muted-foreground/80 tabular-nums tracking-tighter">₹{viewingQuote.pc?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
@@ -714,11 +718,11 @@ const PortfolioPanel = memo(({
                 </span>
                 <h3 className="text-xl font-black text-foreground tracking-tight">Liquidate Position</h3>
               </div>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-8 px-1">Verify Output Parameters</p>
+              <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-8 px-1">Verify Output Parameters</p>
 
               <div className="space-y-6 mb-8 mt-2">
                 <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-widest font-black mb-3 block px-1 text-center">Batch Lots (Max: {sellingOption.lots})</label>
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-black mb-3 block px-1 text-center">Batch Lots (Max: {sellingOption.lots})</label>
                   <div className="flex items-center gap-4">
                     <button onClick={() => setSellingLots(Math.max(1, sellingLots - 1))} className="w-12 h-12 rounded-2xl bg-secondary/50 border border-border text-foreground hover:bg-muted transition-all active:scale-90">-</button>
                     <div className="flex-1 bg-secondary/50 border border-border rounded-2xl py-3 text-center text-sm text-foreground font-black">{sellingLots}</div>
@@ -728,11 +732,11 @@ const PortfolioPanel = memo(({
 
                 <div className="bg-secondary/50 p-6 rounded-[1.5rem] border border-border space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Entry Premium</span>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Entry Premium</span>
                     <span className="text-xs font-mono font-bold text-foreground">{fmt(sellingOption.premium)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Market Premium</span>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Market Premium</span>
                     <span className={cn(
                       "text-xs font-mono font-black",
                       fetchingPremium ? "text-muted-foreground animate-pulse" : "text-emerald-500"
@@ -741,7 +745,7 @@ const PortfolioPanel = memo(({
                     </span>
                   </div>
                   <div className="pt-4 border-t border-border/50 flex justify-between items-center">
-                    <span className="text-[11px] text-foreground font-black uppercase tracking-widest">Total Credit</span>
+                    <span className="text-sm text-foreground font-black uppercase tracking-widest">Total Credit</span>
                     <span className={cn(
                       "text-sm font-mono font-black",
                       (sellingPremium ?? 0) >= sellingOption.premium ? "text-emerald-500" : "text-destructive"
@@ -762,7 +766,7 @@ const PortfolioPanel = memo(({
       </AnimatePresence>
 
       <div className="px-6 py-6 border-t border-border flex-shrink-0 bg-background/40">
-        <p className="text-[10px] text-muted-foreground font-bold text-center uppercase tracking-widest">
+        <p className="text-xs text-muted-foreground font-bold text-center uppercase tracking-widest">
           Secured by StockPulse Intelligence
         </p>
       </div>
