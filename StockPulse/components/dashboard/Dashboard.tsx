@@ -498,8 +498,37 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
   useEffect(() => {
     setWsReady(false);
     fetchHistory(selected.symbol);
-    const interval = setInterval(() => fetchHistory(selected.symbol, true), 20000);
-    return () => clearInterval(interval);
+
+    let intervalId: any = null;
+
+    const startInterval = () => {
+      fetchHistory(selected.symbol, true);
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => fetchHistory(selected.symbol, true), 20000);
+    };
+
+    const stopInterval = () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        startInterval();
+      }
+    };
+
+    if (!document.hidden) {
+      startInterval();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      stopInterval();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [selected, fetchHistory]);
 
   function handleSelectCompany(c: Company | string) {

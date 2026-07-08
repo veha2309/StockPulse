@@ -97,9 +97,36 @@ const PortfolioPanel = memo(({
       }
     };
 
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 15000);
-    return () => clearInterval(interval);
+    let intervalId: any = null;
+
+    const startInterval = () => {
+      fetchPrices();
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(fetchPrices, 15000);
+    };
+
+    const stopInterval = () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        startInterval();
+      }
+    };
+
+    if (!document.hidden) {
+      startInterval();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      stopInterval();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [user.portfolio, tab, user.email, onUserUpdate]);
 
   useEffect(() => {

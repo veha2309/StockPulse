@@ -279,12 +279,37 @@ export default function OptionsChain({ symbol, company, user, underlyingPrice, o
         }
     };
 
+    let intervalId: any = null;
+
+    const startInterval = () => {
+      fetchOptions(true);
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => fetchOptions(true), 15000);
+    };
+
+    const stopInterval = () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        startInterval();
+      }
+    };
+
     fetchOptions();
-    const interval = setInterval(() => fetchOptions(true), 15000);
+    if (!document.hidden) {
+      startInterval();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
         isMounted = false;
-        clearInterval(interval);
+        stopInterval();
+        document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [symbol, selectedExpiry]);
 

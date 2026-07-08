@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { COMPANIES } from "@/lib/constants";
 import type { Company } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 const API = "/api/admin";
 
@@ -453,9 +454,57 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 5000);
-    return () => clearInterval(interval);
+    let realtimeChannel: any = null;
+    let fallbackInterval: any = null;
+
+    const startRealtimeAndPolling = () => {
+      // Initial load
+      load();
+
+      // Setup slow safety fallback polling (60 seconds)
+      if (fallbackInterval) clearInterval(fallbackInterval);
+      fallbackInterval = setInterval(load, 60000);
+
+      // Setup Supabase Realtime subscriptions
+      if (realtimeChannel) realtimeChannel.unsubscribe();
+      realtimeChannel = supabase
+        .channel("admin-db-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => { load(); })
+        .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, () => { load(); })
+        .on("postgres_changes", { event: "*", schema: "public", table: "option_trades" }, () => { load(); })
+        .on("postgres_changes", { event: "*", schema: "public", table: "recharge_requests" }, () => { load(); })
+        .subscribe();
+    };
+
+    const stopRealtimeAndPolling = () => {
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval);
+        fallbackInterval = null;
+      }
+      if (realtimeChannel) {
+        realtimeChannel.unsubscribe();
+        realtimeChannel = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopRealtimeAndPolling();
+      } else {
+        startRealtimeAndPolling();
+      }
+    };
+
+    if (!document.hidden) {
+      startRealtimeAndPolling();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      stopRealtimeAndPolling();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [load]);
 
   async function handleReset(email: string, amount: number) {
