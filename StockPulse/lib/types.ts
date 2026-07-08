@@ -68,8 +68,6 @@ export type OptionPosition = {
 export type UserData = {
   name:       string;
   email:      string;
-  branch:     string;
-  enrollment: string;
   eTokens:    number;
   portfolio:  PortfolioItem[];
   options:    OptionPosition[];

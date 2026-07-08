@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { COMPANIES } from "@/lib/constants";
 import type { UserData, ChartPoint, CandlePoint, Quote, Company } from "@/lib/types";
 import { formatAmount } from "@/lib/format";
+import { supabase, safeUser } from "@/lib/supabase";
 
 type MainTab = "chart" | "options";
 type MobileTab = "markets" | "chart" | "options" | "portfolio";
@@ -377,41 +378,107 @@ export default function Dashboard({ user: initialUser, onLogout }: { user: UserD
   }
 
   useEffect(() => {
-    const poll = async () => {
-      const res = await fetch(`/api/auth?email=${encodeURIComponent(user.email)}`).catch(() => null);
-      if (!res?.ok) return;
-      const data = await res.json();
-      if (data.loggedOut) {
-        onLogout();
-        return;
-      }
-      if (!data?.user) return;
-
-      if (Array.isArray(data.globalFavorites) && data.globalFavorites.length > 0) {
-        const { symbols: current, registry: reg } = loadFavs(user.email);
-        let changed = false;
-        for (const sym of data.globalFavorites) {
-          if (!current.has(sym)) { current.add(sym); changed = true; }
+    // 1. Listen for database updates on this specific user's row
+    const userChannel = supabase
+      .channel(`user-updates-${user.email}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `email=eq.${user.email}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            const updated = safeUser(payload.new);
+            setUser((prev: UserData) => {
+              const combined = { ...prev, ...updated };
+              if (
+                prev.eTokens !== combined.eTokens ||
+                JSON.stringify(prev.portfolio) !== JSON.stringify(combined.portfolio) ||
+                JSON.stringify(prev.options) !== JSON.stringify(combined.options)
+              ) {
+                return combined;
+              }
+              return prev;
+            });
+          }
         }
-        if (changed) {
-          saveFavs(user.email, current, reg);
-          setHeaderFavs(new Set(current));
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'users',
+          filter: `email=eq.${user.email}`,
+        },
+        () => {
+          onLogout();
         }
-      }
+      )
+      .subscribe();
 
-      setUser((prev: UserData) => {
-        const combined = { ...prev, ...data.user };
-        if (
-          prev.eTokens !== combined.eTokens ||
-          JSON.stringify(prev.portfolio) !== JSON.stringify(combined.portfolio) ||
-          JSON.stringify(prev.options) !== JSON.stringify(combined.options)
-        ) return combined;
-        return prev;
-      });
+    // 2. Listen for global config updates (e.g. global_favorites)
+    const configChannel = supabase
+      .channel('global-config-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_config',
+          filter: "key=eq.global_favorites",
+        },
+        (payload) => {
+          const val = (payload.new as any)?.value;
+          if (Array.isArray(val)) {
+            const { symbols: current, registry: reg } = loadFavs(user.email);
+            let changed = false;
+            for (const sym of val) {
+              if (!current.has(sym)) { current.add(sym); changed = true; }
+            }
+            if (changed) {
+              saveFavs(user.email, current, reg);
+              setHeaderFavs(new Set(current));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Fetch initial global favorites on mount
+    const fetchGlobalFavorites = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_config')
+          .select('value')
+          .eq('key', 'global_favorites')
+          .maybeSingle();
+        const val = data?.value;
+        if (Array.isArray(val)) {
+          const { symbols: current, registry: reg } = loadFavs(user.email);
+          let changed = false;
+          for (const sym of val) {
+            if (!current.has(sym)) { current.add(sym); changed = true; }
+          }
+          if (changed) {
+            saveFavs(user.email, current, reg);
+            setHeaderFavs(new Set(current));
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching global favorites:", err);
+      }
     };
-    const interval = setInterval(poll, 15000);
-    return () => clearInterval(interval);
-  }, [user.email]);
+    fetchGlobalFavorites();
+
+    return () => {
+      supabase.removeChannel(userChannel);
+      supabase.removeChannel(configChannel);
+    };
+  }, [user.email, onLogout]);
 
   const fetchHistory = useCallback(async (symbol: string, silent = false) => {
     try {

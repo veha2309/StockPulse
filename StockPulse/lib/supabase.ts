@@ -15,8 +15,6 @@ export function safeUser(u: any) {
   return { 
     name: u.name, 
     email: u.email, 
-    branch: u.branch, 
-    enrollment: u.enrollment, 
     eTokens: Number(rawTokens) || 0, 
     portfolio: u.portfolio || [], 
     options: u.options || [] 

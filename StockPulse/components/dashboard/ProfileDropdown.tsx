@@ -59,15 +59,6 @@ export default function ProfileDropdown({ user, onLogout, onEditOpen }: {
                 <Mail size={10} className="text-muted-foreground" />
                 <p className="text-[9px] text-muted-foreground font-bold truncate opacity-60 tracking-wider lowercase">{user.email}</p>
               </div>
-              <div className="flex items-center gap-2 mt-5">
-                <span className="text-[9px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 tracking-widest uppercase">
-                  {user.branch}
-                </span>
-                <div className="flex items-center gap-1.5 text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-40">
-                  <Shield size={10} />
-                  <span>{user.enrollment}</span>
-                </div>
-              </div>
             </div>
           </div>
 

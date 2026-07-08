@@ -10,7 +10,7 @@ import type { UserData } from "@/lib/types";
 export default function EditProfileModal({ user, onUpdate, onClose }: {
   user: UserData; onUpdate: (u: UserData) => void; onClose: () => void;
 }) {
-  const [form, setForm] = useState({ name: user.name, branch: user.branch, enrollment: user.enrollment, currentPassword: "", newPassword: "" });
+  const [form, setForm] = useState({ name: user.name, currentPassword: "", newPassword: "" });
   const [error, setError]   = useState("");
   const [saving, setSaving] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -66,12 +66,10 @@ export default function EditProfileModal({ user, onUpdate, onClose }: {
         </div>
 
         <form onSubmit={handleSave} className="space-y-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="sm:col-span-2">
+          <div className="grid grid-cols-1 gap-6">
+            <div>
               <Field label="Full Name" type="text" value={form.name} onChange={set("name")} required />
             </div>
-            <Field label="Branch Unit" type="text" value={form.branch} onChange={set("branch")} required />
-            <Field label="Matrix ID" type="text" value={form.enrollment} onChange={set("enrollment")} required />
           </div>
 
           <div className="flex items-center gap-4 py-2">

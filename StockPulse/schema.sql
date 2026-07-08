@@ -4,8 +4,6 @@ CREATE TABLE users (
   email text PRIMARY KEY,
   name text NOT NULL,
   password text NOT NULL,
-  branch text,
-  enrollment text,
 --change if you want to change the default e token value
 --ALTER TABLE users ALTER COLUMN etokens SET DEFAULT 'new_value';
 --ALTER TABLE users ALTER COLUMN e_tokens SET DEFAULT 'new_value';
@@ -61,3 +59,16 @@ CREATE TABLE IF NOT EXISTS app_config (
 INSERT INTO app_config (key, value)
 VALUES ('global_favorites', '[]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
+
+-- Dedicated Supabase database table (email_otps) to store codes and timestamps
+CREATE TABLE IF NOT EXISTS email_otps (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  otp text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  verified boolean DEFAULT false
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_otps_email ON email_otps(email);
+

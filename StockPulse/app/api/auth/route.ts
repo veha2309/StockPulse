@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const { action } = body;
 
     if (action === 'register') {
-      const { name, email, password, branch, enrollment } = body;
+      const { name, email, password } = body;
       const { data: existing } = await supabase.from('users').select('email').eq('email', email).maybeSingle();
       if (existing) return NextResponse.json({ error: "Email already registered" }, { status: 400 });
 
@@ -36,8 +36,6 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashed,
-        branch,
-        enrollment,
         etokens: 10000,
         e_tokens: 10000,
         portfolio: [],
@@ -65,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'update') {
-      const { email, name, branch, enrollment, currentPassword, newPassword } = body;
+      const { email, name, currentPassword, newPassword } = body;
       const { data: user, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
 
       if (error || !user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -75,8 +73,6 @@ export async function POST(request: Request) {
 
       const updates: any = {};
       if (name) updates.name = name;
-      if (branch) updates.branch = branch;
-      if (enrollment) updates.enrollment = enrollment;
       if (newPassword) updates.password = await bcrypt.hash(newPassword, 10);
 
       const { data: updatedUser, error: updateError } = await supabase

@@ -13,8 +13,6 @@ type User = {
   name: string;
   email: string;
   password?: string;
-  branch: string;
-  enrollment: string;
   eTokens: number;
   portfolio: PortfolioItem[];
 };

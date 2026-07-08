@@ -8,7 +8,7 @@ const API = "/api/admin";
 type PortfolioItem = { symbol: string; amount: number; avgBuyPrice: number };
 type OptionPosition = { id: string; contractSymbol: string; type: string; lots: number; premium: number; side: string };
 type AdminUser = {
-  name: string; email: string; branch: string; enrollment: string;
+  name: string; email: string;
   eTokens: number; portfolio: PortfolioItem[]; options: OptionPosition[];
   tradeCount: number; optionTradeCount: number;
 };
@@ -122,8 +122,6 @@ function UserModal({ user, onClose, onReset, onDelete }: {
           {/* Info */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Branch",     value: user.branch },
-              { label: "Enrollment", value: user.enrollment },
               { label: "E-Tokens",   value: `₹${fmt(user.eTokens)}` },
               { label: "Trades",     value: `${user.tradeCount} equity · ${user.optionTradeCount} options` },
             ].map(r => (
@@ -693,8 +691,6 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                         />
                       </th>
                       <th className="text-left px-4 py-3">Name</th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell">Branch</th>
-                      <th className="text-left px-4 py-3 hidden md:table-cell">Enrollment</th>
                       <th className="text-right px-4 py-3">
                         <button
                           onClick={() => setTokenSort(s => s === "desc" ? "asc" : "desc")}
@@ -724,8 +720,6 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                           <p className="text-white font-medium">{u.name}</p>
                           <p className="text-gray-600 text-xs">{u.email}</p>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{u.branch}</td>
-                        <td className="px-4 py-3 text-gray-400 font-mono text-xs hidden md:table-cell">{u.enrollment}</td>
                         <td className="px-4 py-3 text-right">
                           <span className={`font-semibold tabular-nums ${u.eTokens >= 10000 ? "text-emerald-400" : u.eTokens >= 5000 ? "text-amber-400" : "text-red-400"}`}>
                             ₹{fmt(u.eTokens)}
@@ -741,7 +735,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       </tr>
                     ))}
                     {filteredUsers.length === 0 && (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600">No users found</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600">No users found</td></tr>
                     )}
                   </tbody>
                 </table>
