@@ -42,10 +42,36 @@ export default function CandlestickChart({ data }: { data: CandlePoint[]; isPosi
           timeVisible: true, 
           secondsVisible: false, 
           borderColor: colors.border,
+          tickMarkFormatter: (time) => {
+            if (typeof time === "number") {
+              const date = new Date(time * 1000);
+              return date.toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+              });
+            }
+            return String(time);
+          }
         },
         rightPriceScale: { 
           borderColor: colors.border,
           autoScale: true,
+        },
+        localization: {
+          timeFormatter: (time) => {
+            if (typeof time === "number") {
+              const date = new Date(time * 1000);
+              return date.toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+              });
+            }
+            return String(time);
+          }
         },
         crosshair: {
           mode: 0, // Magnet

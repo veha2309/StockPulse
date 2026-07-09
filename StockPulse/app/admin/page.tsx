@@ -26,7 +26,7 @@ type Stats = {
   totalVolume: number; totalETokens: number;
 };
 
-type Tab = "users" | "trades" | "options" | "favorites" | "recharge";
+type Tab = "users" | "trades" | "options" | "favorites" | "recharge" | "learnings";
 
 type RechargeRequest = {
   id: string;
@@ -406,6 +406,228 @@ function FavoritesManager() {
   );
 }
 
+// ── Learnings Manager ────────────────────────────────────────────────────────
+type LearningCard = {
+  title: string;
+  desc: string;
+  tag: string;
+  iconName: string;
+  colorHex: string;
+};
+
+function LearningsManager() {
+  const [learnings, setLearnings] = useState<LearningCard[]>([]);
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [tag, setTag] = useState("DERIVATIVES");
+  const [iconName, setIconName] = useState("auto_graph");
+  const [colorHex, setColorHex] = useState("#7C3AED");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Load current global learnings on mount
+  useEffect(() => {
+    fetch("/api/admin/learnings")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d.learnings) && d.learnings.length > 0) {
+          setLearnings(d.learnings);
+        } else {
+          // Default learnings seed if empty
+          setLearnings([
+            { title: "What is Options Trading?", desc: "Options give you the right (not obligation) to buy/sell a stock at a fixed price before expiry.", tag: "DERIVATIVES", iconName: "auto_graph", colorHex: "#7C3AED" },
+            { title: "Understanding P/E Ratio", desc: "Price-to-Earnings ratio tells you how much investors pay for every ₹1 of company earnings.", tag: "FUNDAMENTALS", iconName: "bar_chart", colorHex: "#3B82F6" },
+            { title: "F&O vs Equity Trading", desc: "Equity means owning shares. F&O are contracts derived from underlying stocks — higher risk, higher leverage.", tag: "F&O", iconName: "timeline", colorHex: "#00D09C" },
+            { title: "Reading Candlestick Charts", desc: "Each candle shows open, high, low & close prices. Green = bullish day, Red = bearish day.", tag: "TECHNICAL", iconName: "candlestick_chart", colorHex: "#F59E0B" }
+          ]);
+        }
+      });
+  }, []);
+
+  function addCard(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title || !desc || !tag) return;
+    const newCard: LearningCard = { title, desc, tag, iconName, colorHex };
+    setLearnings(prev => [...prev, newCard]);
+    setTitle("");
+    setDesc("");
+  }
+
+  function removeCard(idx: number) {
+    setLearnings(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  async function saveBroadcast() {
+    if (!password) {
+      setToast({ msg: "Enter admin password first", ok: false });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/learnings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ learnings, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setToast({ msg: `✓ Saved & broadcasted ${learnings.length} learning cards!`, ok: true });
+    } catch (err: any) {
+      setToast({ msg: err.message, ok: false });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setToast(null), 4000);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-xl border ${
+          toast.ok
+            ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
+            : "bg-red-500/20 border-red-500/30 text-red-300"
+        }`}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="glass rounded-xl border border-blue-500/20 p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-white font-bold flex items-center gap-2">📚 Today&apos;s Learning Manager</h2>
+            <p className="text-gray-500 text-xs mt-1">
+              Add or remove educational cards shown on the Flutter dashboard. Once done, enter password and hit **Save & Broadcast**.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="password"
+              placeholder="Admin password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="input-field px-3 py-2 rounded-lg text-sm w-40"
+            />
+            <button
+              onClick={saveBroadcast}
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+            >
+              {saving ? (
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : "💾"}
+              Save & Broadcast
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form to Add Card */}
+        <div className="glass rounded-xl border border-white/[0.06] p-5 space-y-4 h-fit">
+          <p className="text-white text-sm font-semibold border-b border-white/[0.06] pb-2">Add Learning Card</p>
+          <form onSubmit={addCard} className="space-y-4">
+            <div>
+              <label className="text-gray-500 text-[10px] uppercase tracking-wider block mb-1">Title</label>
+              <input
+                type="text" placeholder="e.g. What is Option Chain?" value={title}
+                onChange={e => setTitle(e.target.value)} required
+                className="w-full input-field px-3 py-2 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-gray-500 text-[10px] uppercase tracking-wider block mb-1">Description</label>
+              <textarea
+                placeholder="Brief summary of the concept..." value={desc}
+                onChange={e => setDesc(e.target.value)} required rows={3}
+                className="w-full input-field px-3 py-2 rounded-lg text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-gray-500 text-[10px] uppercase tracking-wider block mb-1">Tag</label>
+                <input
+                  type="text" placeholder="TECHNICAL" value={tag}
+                  onChange={e => setTag(e.target.value.toUpperCase())} required
+                  className="w-full input-field px-3 py-2 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-gray-500 text-[10px] uppercase tracking-wider block mb-1">Icon</label>
+                <select
+                  value={iconName} onChange={e => setIconName(e.target.value)}
+                  className="w-full input-field px-3 py-2 rounded-lg text-sm bg-black text-white"
+                >
+                  <option value="auto_graph">Auto Graph</option>
+                  <option value="bar_chart">Bar Chart</option>
+                  <option value="timeline">Timeline</option>
+                  <option value="candlestick_chart">Candlestick Chart</option>
+                  <option value="school">School</option>
+                  <option value="insights">Insights</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-gray-500 text-[10px] uppercase tracking-wider block mb-1">Theme Color</label>
+              <div className="flex gap-2">
+                {['#7C3AED', '#3B82F6', '#00D09C', '#F59E0B', '#EF4444', '#EC4899'].map(c => (
+                  <button
+                    key={c} type="button" onClick={() => setColorHex(c)}
+                    style={{ backgroundColor: c }}
+                    className={`w-7 h-7 rounded-full border-2 transition-transform ${colorHex === c ? 'border-white scale-110' : 'border-transparent'}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <button type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors">
+              + Add Card
+            </button>
+          </form>
+        </div>
+
+        {/* Learning Cards List */}
+        <div className="lg:col-span-2 space-y-4">
+          <p className="text-white text-sm font-semibold">Active Learning Cards ({learnings.length})</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {learnings.map((card, idx) => (
+              <div key={idx} className="glass rounded-xl border border-white/[0.06] p-4 flex flex-col justify-between relative group hover:border-white/[0.12] transition-colors">
+                <button
+                  onClick={() => removeCard(idx)}
+                  className="absolute top-3 right-3 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ✕
+                </button>
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ backgroundColor: `${card.colorHex}22`, color: card.colorHex }}>
+                      {card.tag}
+                    </span>
+                    <span className="text-[10px] text-gray-600 font-mono">Icon: {card.iconName}</span>
+                  </div>
+                  <h4 className="text-white font-bold text-sm mb-1.5">{card.title}</h4>
+                  <p className="text-gray-400 text-xs leading-relaxed">{card.desc}</p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500">Card #{idx + 1}</span>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: card.colorHex }} />
+                </div>
+              </div>
+            ))}
+            {learnings.length === 0 && (
+              <div className="col-span-2 text-center py-12 glass rounded-xl border border-dashed border-white/[0.08]">
+                <p className="text-gray-500 text-sm">No learning cards active. Add one from the form.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab]           = useState<Tab>("users");
@@ -668,6 +890,7 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
               { id: "options",   label: "Option Trades" },
               { id: "recharge",  label: "💳 Recharge" },
               { id: "favorites", label: "★ Favorites" },
+              { id: "learnings", label: "📚 Learnings" },
             ] as { id: Tab; label: string }[]).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors relative ${
@@ -967,6 +1190,9 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         {/* Favorites tab */}
         {tab === "favorites" && <FavoritesManager />}
+
+        {/* Learnings tab */}
+        {tab === "learnings" && <LearningsManager />}
 
         {/* Recharge Requests tab */}
         {tab === "recharge" && (
