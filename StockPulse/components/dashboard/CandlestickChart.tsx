@@ -42,7 +42,7 @@ export default function CandlestickChart({ data }: { data: CandlePoint[]; isPosi
           timeVisible: true, 
           secondsVisible: false, 
           borderColor: colors.border,
-          tickMarkFormatter: (time) => {
+          tickMarkFormatter: (time : any)  => {
             if (typeof time === "number") {
               const date = new Date(time * 1000);
               return date.toLocaleTimeString("en-IN", {
@@ -60,7 +60,7 @@ export default function CandlestickChart({ data }: { data: CandlePoint[]; isPosi
           autoScale: true,
         },
         localization: {
-          timeFormatter: (time) => {
+          timeFormatter: (time: any) => {
             if (typeof time === "number") {
               const date = new Date(time * 1000);
               return date.toLocaleTimeString("en-IN", {
