@@ -4,3 +4,10 @@ node_modules/
 .env
 .vercel
 .env*
+
+# Local build state and validation captures
+*.tsbuildinfo
+/scratch/*.log
+/scratch/*audit.json
+/scratch/logic-lint.json
+/artifacts/*.jpg

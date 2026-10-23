@@ -1,66 +1,45 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
+import { requestSession } from "@/lib/session";
 
-/**
- * GET /api/upstox/auth
- * This endpoint checks if Upstox credentials are configured and attempts
- * to retrieve/generate the live WebSocket redirection URL.
- * If credentials are not present, it gracefully returns a status telling the
- * clients to run in Simulation/Dev Mode.
- */
-export async function GET() {
-  const clientId = process.env.UPSTOX_CLIENT_ID;
-  const clientSecret = process.env.UPSTOX_CLIENT_SECRET;
-  
-  if (!clientId || !clientSecret) {
+export async function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  if (params.get("connect") !== "1")
     return NextResponse.json({
-      mode: 'simulation',
-      message: 'Upstox credentials not configured in .env. Running in Mock/Simulation Feed mode.',
-      fallbackUrl: 'ws://localhost:3000/api/upstox/mock-ws'
+      mode: "polling",
+      message:
+        "Prices refresh from the market-data provider. A decoded Upstox stream is not implemented.",
     });
-  }
-
-  try {
-    // 1. Get the access token stored in Supabase app_config
-    const { data: config } = await supabase
-      .from('app_config')
-      .select('value')
-      .eq('key', 'upstox_access_token')
-      .maybeSingle();
-
-    const accessToken = config?.value?.access_token;
-
-    if (!accessToken) {
-      return NextResponse.json({
-        mode: 'need_auth',
-        message: 'Upstox account not linked. Please login via admin panel.',
-        loginUrl: `https://api.upstox.com/v2/login/authorization/dialog?client_id=${clientId}&redirect_uri=${encodeURIComponent(process.env.UPSTOX_REDIRECT_URI || '')}`
-      });
-    }
-
-    // 2. Request Upstox market data feed authorisation
-    const response = await fetch('https://api.upstox.com/v2/feed/market-data-feed/authorise', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Upstox returned HTTP status ${response.status}`);
-    }
-
-    const resData = await response.json();
-    
-    return NextResponse.json({
-      mode: 'live',
-      authorizedUrl: resData.data.authorizedRedirectUri
-    });
-  } catch (err: any) {
-    return NextResponse.json({
-      mode: 'simulation',
-      error: err.message || 'Failed to authenticate with Upstox. Running in Simulation mode.',
-      fallbackUrl: 'ws://localhost:3000/api/upstox/mock-ws'
-    });
-  }
+  if (!requestSession(request, "admin"))
+    return NextResponse.json(
+      { error: "Admin sign-in required" },
+      { status: 401 },
+    );
+  const clientId = process.env.UPSTOX_CLIENT_ID,
+    redirect = process.env.UPSTOX_REDIRECT_URI;
+  if (!clientId || !redirect)
+    return NextResponse.json(
+      { error: "Upstox is not configured" },
+      { status: 503 },
+    );
+  const state = randomBytes(32).toString("hex");
+  const url = new URL("https://api.upstox.com/v2/login/authorization/dialog");
+  url.search = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: redirect,
+    state,
+  }).toString();
+  const response = NextResponse.json({
+    mode: "need_auth",
+    loginUrl: url.toString(),
+  });
+  response.cookies.set("stockpulse_upstox_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
+  return response;
 }

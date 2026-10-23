@@ -1,98 +1,62 @@
-import { NextResponse } from 'next/server';
-import { supabase, safeUser } from '@/lib/supabase';
-import bcrypt from 'bcryptjs';
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/server-db";
+import { safeUser } from "@/lib/user";
+import { hashOtp } from "@/lib/session";
+import { normalizeEmail, validEmail, sessionResponse } from "@/lib/server-auth";
+import { databaseError, rateLimit } from "@/lib/database";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password, otp } = await request.json();
-
-    if (!name || !email || !password || !otp) {
-      return NextResponse.json({ error: 'All fields (name, email, password, otp) are required' }, { status: 400 });
-    }
-
-    // 1. Query the latest unverified OTP entry for this email and matching OTP code
-    const { data: otpRecord, error: otpError } = await supabase
-      .from('email_otps')
-      .select('*')
-      .eq('email', email)
-      .eq('otp', otp)
-      .eq('verified', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (otpError) {
-      console.error('Error fetching OTP record:', otpError);
-      return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
-    }
-
-    if (!otpRecord) {
-      return NextResponse.json({ error: 'Invalid verification code' }, { status: 400 });
-    }
-
-    // 2. Verify that the OTP code is not expired (10 minutes)
-    const now = new Date();
-    const expiresAt = new Date(otpRecord.expires_at);
-
-    if (now > expiresAt) {
-      return NextResponse.json({ error: 'Verification code has expired. Please request a new one.' }, { status: 400 });
-    }
-
-    // 3. Mark the OTP record as verified
-    const { error: updateOtpError } = await supabase
-      .from('email_otps')
-      .update({ verified: true })
-      .eq('id', otpRecord.id);
-
-    if (updateOtpError) {
-      console.error('Error updating OTP record:', updateOtpError);
-    }
-
-    // 4. Double check that the email is not already registered in users table
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('email')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (existingUser) {
-      return NextResponse.json({ error: 'Email is already registered' }, { status: 400 });
-    }
-
-    // 5. Hash the password
-    const hashed = await bcrypt.hash(password, 10);
-
-    // 6. Construct and insert the new user record
-    const newUser = {
-      name,
-      email,
-      password: hashed,
-      etokens: 10000,
-      e_tokens: 10000,
-      portfolio: [],
-      options: []
-    };
-
-    const { data: user, error: insertError } = await supabase
-      .from('users')
-      .insert(newUser)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Error inserting user:', insertError);
-      return NextResponse.json({ error: 'Failed to create user account' }, { status: 500 });
-    }
-
-    // 7. Delete all OTPs for this email since registration succeeded
-    await supabase
-      .from('email_otps')
-      .delete()
-      .eq('email', email);
-
-    return NextResponse.json({ success: true, user: safeUser(user) });
-  } catch (err: any) {
-    console.error('Verify OTP route error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const body = await request.json();
+    const email = normalizeEmail(body.email);
+    if (
+      !validEmail(email) ||
+      typeof body.name !== "string" ||
+      !body.name.trim() ||
+      body.name.trim().length > 100 ||
+      typeof body.password !== "string" ||
+      body.password.length < 8 ||
+      Buffer.byteLength(body.password) > 72 ||
+      typeof body.otp !== "string" ||
+      !/^\d{6}$/.test(body.otp)
+    )
+      return NextResponse.json(
+        {
+          error:
+            "Provide a name, valid email, 8–72 byte password and 6-digit code",
+        },
+        { status: 400 },
+      );
+    const limited = await rateLimit("verify-otp", email, 10, 600);
+    if (limited) return limited;
+    const { data: user, error } = await supabase.rpc("stockpulse_register", {
+      p_email: email,
+      p_name: body.name.trim(),
+      p_password: await bcrypt.hash(body.password, 12),
+      p_otp: hashOtp(email, body.otp),
+    });
+    if (error?.message.includes("INVALID_OTP"))
+      return NextResponse.json(
+        { error: "Verification code is invalid or expired" },
+        { status: 400 },
+      );
+    if (error?.code === "23505")
+      return NextResponse.json(
+        { error: "Email is already registered" },
+        { status: 409 },
+      );
+    if (error) return databaseError(error);
+    return sessionResponse(
+      { success: true, user: safeUser(user) },
+      "user",
+      user.email,
+    );
+  } catch (error) {
+    console.error("[verify otp]", error);
+    return NextResponse.json(
+      { error: "Unable to verify registration" },
+      { status: 400 },
+    );
   }
 }

@@ -1,96 +1,162 @@
-import { NextResponse } from 'next/server';
-import { supabase, safeUser } from '@/lib/supabase';
-import bcrypt from 'bcryptjs';
+import { rateLimit } from "@/lib/database";
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/server-db";
+import { safeUser } from "@/lib/user";
+import { requestSession } from "@/lib/session";
+import {
+  normalizeEmail,
+  validEmail,
+  sessionResponse,
+  logoutResponse,
+} from "@/lib/server-auth";
+import bcrypt from "bcryptjs";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email = searchParams.get('email');
-  
-  if (!email) return NextResponse.json({ error: 'Missing email' }, { status: 400 });
-
+  const session = requestSession(request);
+  if (!session)
+    return NextResponse.json({ error: "Sign-in required" }, { status: 401 });
   const [userRes, favsRes] = await Promise.all([
-    supabase.from('users').select('*').eq('email', email).single(),
-    supabase.from('app_config').select('value').eq('key', 'global_favorites').maybeSingle(),
+    supabase.from("users").select("*").eq("email", session.email).maybeSingle(),
+    supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "global_favorites")
+      .maybeSingle(),
   ]);
+  if (userRes.error)
+    return NextResponse.json(
+      { error: "Unable to verify session" },
+      { status: 503 },
+    );
+  if (!userRes.data)
+    return NextResponse.json(
+      { error: "User not found", loggedOut: true },
+      { status: 401 },
+    );
+  return NextResponse.json(
+    {
+      user: safeUser(userRes.data),
+      globalFavorites: favsRes.data?.value ?? [],
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
 
-  if (userRes.error || !userRes.data) {
-    return NextResponse.json({ error: "User not found", loggedOut: true }, { status: 200 });
-  }
-
-  const globalFavorites: string[] = favsRes.data?.value ?? [];
-  return NextResponse.json({ user: safeUser(userRes.data), globalFavorites });
+export async function DELETE() {
+  return logoutResponse("user");
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action } = body;
-
-    if (action === 'register') {
-      const { name, email, password } = body;
-      const { data: existing } = await supabase.from('users').select('email').eq('email', email).maybeSingle();
-      if (existing) return NextResponse.json({ error: "Email already registered" }, { status: 400 });
-
-      const hashed = await bcrypt.hash(password, 10);
-      const newUser = {
-        name,
-        email,
-        password: hashed,
-        etokens: 10000,
-        e_tokens: 10000,
-        portfolio: [],
-        options: []
+    const email = normalizeEmail(body.email);
+    if (body.action === "register")
+      return NextResponse.json(
+        { error: "Verify your email using the registration form" },
+        { status: 400 },
+      );
+    if (body.action === "login") {
+      if (
+        !validEmail(email) ||
+        typeof body.password !== "string" ||
+        body.password.length > 72
+      )
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 400 },
+        );
+      const limited = await rateLimit("user-login", email, 15, 900);
+      if (limited) return limited;
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+      if (error)
+        return NextResponse.json(
+          { error: "Sign-in is temporarily unavailable" },
+          { status: 503 },
+        );
+      if (!user || !(await bcrypt.compare(body.password, user.password)))
+        return NextResponse.json(
+          { error: "Invalid email or password" },
+          { status: 401 },
+        );
+      return sessionResponse(
+        { success: true, user: safeUser(user) },
+        "user",
+        user.email,
+      );
+    }
+    if (body.action === "update") {
+      const session = requestSession(request);
+      if (!session || (email && email !== session.email))
+        return NextResponse.json(
+          { error: "Sign-in required" },
+          { status: 401 },
+        );
+      if (
+        typeof body.currentPassword !== "string" ||
+        !body.currentPassword ||
+        typeof body.name !== "string" ||
+        !body.name.trim() ||
+        body.name.trim().length > 100
+      )
+        return NextResponse.json(
+          { error: "Name and current password are required" },
+          { status: 400 },
+        );
+      if (
+        body.newPassword &&
+        (typeof body.newPassword !== "string" ||
+          body.newPassword.length < 8 ||
+          Buffer.byteLength(body.newPassword) > 72)
+      )
+        return NextResponse.json(
+          { error: "New password must be 8–72 bytes" },
+          { status: 400 },
+        );
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", session.email)
+        .maybeSingle();
+      if (error)
+        return NextResponse.json(
+          { error: "Account is temporarily unavailable" },
+          { status: 503 },
+        );
+      if (!user)
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      if (!(await bcrypt.compare(body.currentPassword, user.password)))
+        return NextResponse.json(
+          { error: "Current password is incorrect" },
+          { status: 401 },
+        );
+      const updates: { name: string; password?: string } = {
+        name: body.name.trim(),
       };
-
-      const { data: user, error } = await supabase.from('users').insert(newUser).select().single();
-      if (error) {
-        console.error(error);
-        return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true, user: safeUser(user) });
-    }
-
-    if (action === 'login') {
-      const { email, password } = body;
-      const { data: user, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
-      
-      if (error || !user || !(await bcrypt.compare(password, user.password))) {
-        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
-      }
-
-      return NextResponse.json({ success: true, user: safeUser(user) });
-    }
-
-    if (action === 'update') {
-      const { email, name, currentPassword, newPassword } = body;
-      const { data: user, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
-
-      if (error || !user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-      if (!(await bcrypt.compare(currentPassword, user.password))) {
-        return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 });
-      }
-
-      const updates: any = {};
-      if (name) updates.name = name;
-      if (newPassword) updates.password = await bcrypt.hash(newPassword, 10);
-
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
+      if (body.newPassword)
+        updates.password = await bcrypt.hash(body.newPassword, 12);
+      const { data, error: updateError } = await supabase
+        .from("users")
         .update(updates)
-        .eq('email', email)
+        .eq("email", session.email)
         .select()
         .single();
-        
       if (updateError) throw updateError;
-
-      return NextResponse.json({ success: true, user: safeUser(updatedUser) });
+      return sessionResponse(
+        { success: true, user: safeUser(data) },
+        "user",
+        session.email,
+      );
     }
-
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-
   } catch (error) {
     console.error("[auth api]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to process authentication request" },
+      { status: 500 },
+    );
   }
 }

@@ -90,7 +90,7 @@ export default function RegisterScreen({ onRegister, onSwitch }: { onRegister: (
             required 
           />
           {error && <p className="text-red-400 text-xs bg-red-500/10 rounded-lg px-3 py-2 animate-fadeIn">{error}</p>}
-          <button type="submit" disabled={loading} className="btn-primary mt-1 py-3 rounded-xl text-white font-semibold text-sm">
+          <button type="submit" disabled={loading} className="btn-primary mt-1 py-3 rounded-xl text-primary-foreground font-semibold text-sm">
             {loading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Verifying...</span> : "Verify & Create Account"}
           </button>
         </form>
@@ -98,7 +98,7 @@ export default function RegisterScreen({ onRegister, onSwitch }: { onRegister: (
           <button 
             type="button" 
             onClick={() => setStep("form")} 
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-primary-foreground transition-colors"
           >
             ← Back
           </button>
@@ -122,7 +122,7 @@ export default function RegisterScreen({ onRegister, onSwitch }: { onRegister: (
         <Field label="Email"          type="email"    placeholder="you@example.com" value={form.email}      onChange={set("email")}      required />
         <Field label="Password"       type="password" placeholder="Min. 8 characters" value={form.password} onChange={set("password")}   required />
         {error && <p className="text-red-400 text-xs bg-red-500/10 rounded-lg px-3 py-2 animate-fadeIn">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-primary mt-1 py-3 rounded-xl text-white font-semibold text-sm">
+        <button type="submit" disabled={loading} className="btn-primary mt-1 py-3 rounded-xl text-primary-foreground font-semibold text-sm">
           {loading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Sending code...</span> : "Continue"}
         </button>
       </form>

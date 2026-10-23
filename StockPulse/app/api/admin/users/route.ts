@@ -1,18 +1,14 @@
-import { NextResponse } from 'next/server';
-import { supabase, safeUser } from '@/lib/supabase';
-
-export const revalidate = 0;
-
-export async function GET() {
-  const { data: users } = await supabase.from('users').select('*');
-  const { data: trades } = await supabase.from('trades').select('email');
-  const { data: opts } = await supabase.from('option_trades').select('email');
-
-  const result = (users || []).map(u => ({
-    ...safeUser(u),
-    tradeCount: trades?.filter(t => t.email === u.email).length || 0,
-    optionTradeCount: opts?.filter(t => t.email === u.email).length || 0,
-  }));
-
-  return NextResponse.json(result);
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/server-db";
+import { requestSession } from "@/lib/session";
+import { databaseError } from "@/lib/database";
+export async function GET(request: Request) {
+  if (!requestSession(request, "admin"))
+    return NextResponse.json(
+      { error: "Admin sign-in required" },
+      { status: 401 },
+    );
+  const { data, error } = await supabase.rpc("stockpulse_admin_users");
+  if (error) return databaseError(error);
+  return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
 }

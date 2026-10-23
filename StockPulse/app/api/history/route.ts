@@ -1,31 +1,30 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from "next/server";
+import { requestSession } from "@/lib/session";
+import { supabase } from "@/lib/server-db";
+import { databaseError } from "@/lib/database";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email = searchParams.get('email');
-  
-  if (!email) return NextResponse.json({ error: 'No email' }, { status: 400 });
-
-  const { data: trades, error: tradesError } = await supabase
-    .from('trades')
-    .select('*')
-    .eq('email', email)
-    .order('timestamp', { ascending: false })
-    .limit(100);
-
-  const { data: optionTrades, error: optsError } = await supabase
-    .from('option_trades')
-    .select('*')
-    .eq('email', email)
-    .order('timestamp', { ascending: false })
-    .limit(100);
-
-  if (tradesError) console.error(tradesError);
-  if (optsError) console.error(optsError);
-
-  return NextResponse.json({ 
-    trades: trades || [], 
-    optionTrades: optionTrades || [] 
-  });
+  const session = requestSession(request);
+  if (!session)
+    return NextResponse.json({ error: "Sign-in required" }, { status: 401 });
+  const [trades, options] = await Promise.all([
+    supabase
+      .from("trades")
+      .select("*")
+      .eq("email", session.email)
+      .order("timestamp", { ascending: false })
+      .limit(100),
+    supabase
+      .from("option_trades")
+      .select("*")
+      .eq("email", session.email)
+      .order("timestamp", { ascending: false })
+      .limit(100),
+  ]);
+  if (trades.error || options.error)
+    return databaseError((trades.error || options.error)!);
+  return NextResponse.json(
+    { trades: trades.data, optionTrades: options.data },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
