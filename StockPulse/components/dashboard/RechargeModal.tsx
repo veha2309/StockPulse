@@ -115,12 +115,10 @@ NOTIFY pgrst, 'reload schema';`;
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 24 }}
             transition={spring}
-            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-border bg-background shadow-2xl shadow-black/40"
+            className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-none shadow-black/40"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Gradient top */}
-            <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent pointer-events-none" />
-            <div className="absolute top-[-60px] right-[-60px] w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
             {/* Close */}
             <button
@@ -146,23 +144,23 @@ NOTIFY pgrst, 'reload schema';`;
                     <div className="mb-6 mt-2 flex justify-center">
                       <div className="relative">
                         <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20 blur-2xl" />
-                        <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl border border-primary/30 bg-primary/10 text-primary shadow-xl">
+                        <div className="relative flex h-20 w-20 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary shadow-none">
                           <Zap size={36} className="fill-primary/30" />
                         </div>
                       </div>
                     </div>
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-black uppercase tracking-tight text-foreground mb-2">Token Recharge</h2>
+                      <h2 className="text-2xl font-semibold normal-case tracking-tight text-foreground mb-2">Token Recharge</h2>
                       <p className="text-sm text-muted-foreground">Request Virtual Tokens from the admin. Your request goes directly to the admin panel for review.</p>
                     </div>
 
                   {/* Schema missing banner */}
                     {schemaMissing && (
-                      <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/8 p-4">
+                      <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
                         <div className="flex items-start gap-3 mb-3">
                           <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-xs font-black text-amber-500 uppercase tracking-wider mb-0.5">Admin Setup Required</p>
+                            <p className="text-xs font-semibold text-amber-500 normal-case tracking-wider mb-0.5">Admin Setup Required</p>
                             <p className="text-[10px] text-muted-foreground leading-relaxed">
                               Run this SQL in your <strong className="text-foreground">Supabase Dashboard → SQL Editor</strong> to enable recharge requests:
                             </p>
@@ -181,23 +179,23 @@ NOTIFY pgrst, 'reload schema';`;
                     )}
 
                     {/* Rate card */}
-                    <div className="mb-8 rounded-2xl border border-primary/20 bg-primary/5 p-5 relative overflow-hidden">
+                    <div className="mb-8 rounded-xl border border-primary/20 bg-primary/5 p-5 relative overflow-hidden">
                       <div className="absolute top-[-20%] right-[-10%] w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
                       <div className="relative flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70 mb-1">Rate</p>
-                          <p className="text-lg font-black text-foreground">1,000 VT = ₹1</p>
+                          <p className="text-[10px] font-semibold normal-case tracking-normal text-primary/70 mb-1">Rate</p>
+                          <p className="text-lg font-semibold text-foreground">1,000 VT = ₹1</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Min Request</p>
-                          <p className="text-lg font-black text-emerald-500">10,000 VT</p>
+                          <p className="text-[10px] font-semibold normal-case tracking-normal text-muted-foreground mb-1">Min Request</p>
+                          <p className="text-lg font-semibold text-emerald-500">10,000 VT</p>
                         </div>
                       </div>
                     </div>
 
                     <button
                       onClick={() => setStep(2)}
-                      className="flex w-full items-center justify-between rounded-2xl bg-primary px-6 py-4 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]"
+                      className="flex w-full items-center justify-between rounded-xl bg-primary px-6 py-4 text-xs font-semibold normal-case tracking-normal text-primary-foreground shadow-none shadow-primary/20 transition-all  hover:brightness-110 active:scale-[0.98]"
                     >
                       <div className="flex items-center gap-3">
                         <Wallet size={18} />
@@ -205,7 +203,7 @@ NOTIFY pgrst, 'reload schema';`;
                       </div>
                       <ArrowRight size={18} />
                     </button>
-                    <p className="mt-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                    <p className="mt-3 text-center text-[10px] font-bold normal-case tracking-normal text-muted-foreground/50">
                       Reviewed & approved by admin
                     </p>
                   </motion.div>
@@ -228,13 +226,13 @@ NOTIFY pgrst, 'reload schema';`;
                       <ChevronLeft size={14} /> Back
                     </button>
 
-                    <h2 className="text-xl font-black uppercase tracking-tight text-foreground mb-1">Recharge Details</h2>
+                    <h2 className="text-xl font-semibold normal-case tracking-tight text-foreground mb-1">Recharge Details</h2>
                     <p className="text-xs text-muted-foreground mb-6">Fill in the details and your request will appear in the admin panel.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                       {/* Email (read-only) */}
                       <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">Your Email</label>
+                        <label className="block text-[10px] font-semibold normal-case tracking-normal text-muted-foreground mb-2">Your Email</label>
                         <div className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm font-mono text-muted-foreground truncate">
                           {userEmail}
                         </div>
@@ -242,7 +240,7 @@ NOTIFY pgrst, 'reload schema';`;
 
                       {/* Amount presets */}
                       <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">Amount (Virtual Tokens)</label>
+                        <label className="block text-[10px] font-semibold normal-case tracking-normal text-muted-foreground mb-2">Amount (Virtual Tokens)</label>
                         <div className="grid grid-cols-4 gap-2 mb-2">
                           {AMOUNT_PRESETS.map((p) => (
                             <button
@@ -250,9 +248,9 @@ NOTIFY pgrst, 'reload schema';`;
                               type="button"
                               onClick={() => { setAmount(p); setCustomAmount(""); }}
                               className={cn(
-                                "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                "py-2 rounded-xl text-[10px] font-semibold normal-case tracking-normal border transition-all",
                                 !customAmount && amount === p
-                                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                                  ? "bg-primary text-primary-foreground border-primary shadow-none shadow-primary/20"
                                   : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
                               )}
                             >
@@ -270,15 +268,15 @@ NOTIFY pgrst, 'reload schema';`;
                         />
                         {finalAmount >= 10000 && (
                           <p className="mt-1.5 text-[10px] text-muted-foreground font-medium">
-                            Equivalent to <span className="text-primary font-black">₹{price}</span>
+                            Equivalent to <span className="text-primary font-semibold">₹{price}</span>
                           </p>
                         )}
                       </div>
 
                       {/* Description */}
                       <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
-                          Reason / Description <span className="opacity-40">(optional)</span>
+                        <label className="block text-[10px] font-semibold normal-case tracking-normal text-muted-foreground mb-2">
+                          Reason / Description <span className="opacity-80">(optional)</span>
                         </label>
                         <textarea
                           rows={3}
@@ -298,7 +296,7 @@ NOTIFY pgrst, 'reload schema';`;
                       <button
                         type="submit"
                         disabled={loading || finalAmount < 10000}
-                        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-6 py-4 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-6 py-4 text-xs font-semibold normal-case tracking-normal text-primary-foreground shadow-none shadow-primary/20 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-80 disabled:cursor-not-allowed"
                       >
                         {loading ? (
                           <Loader2 size={18} className="animate-spin" />
@@ -326,16 +324,16 @@ NOTIFY pgrst, 'reload schema';`;
                       className="relative mb-6"
                     >
                       <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl animate-pulse" />
-                      <div className="relative w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+                      <div className="relative w-20 h-20 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
                         <CheckCircle size={40} />
                       </div>
                     </motion.div>
-                    <h2 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">Request Sent!</h2>
-                    <p className="text-sm text-muted-foreground mb-2">Your request for <span className="text-primary font-black">{finalAmount.toLocaleString()} VT</span> has been sent to the admin panel.</p>
+                    <h2 className="text-2xl font-semibold text-foreground normal-case tracking-tight mb-2">Request Sent!</h2>
+                    <p className="text-sm text-muted-foreground mb-2">Your request for <span className="text-primary font-semibold">{finalAmount.toLocaleString()} VT</span> has been sent to the admin panel.</p>
                     <p className="text-xs text-muted-foreground/60 mb-8">You'll receive your tokens once the admin approves your request.</p>
                     <button
                       onClick={handleClose}
-                      className="px-8 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all active:scale-95"
+                      className="px-8 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-semibold normal-case tracking-normal hover:brightness-110 transition-all active:scale-95"
                     >
                       Done
                     </button>
@@ -357,7 +355,7 @@ NOTIFY pgrst, 'reload schema';`;
             )}
 
             {/* Bottom accent */}
-            <div className="h-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
+            <div className="h-px bg-border" />
           </motion.div>
         </div>
       )}

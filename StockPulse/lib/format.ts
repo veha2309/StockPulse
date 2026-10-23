@@ -7,7 +7,7 @@ export function formatAmount(n: number, options: { compact?: boolean; symbol?: b
   const { compact = true, symbol = true } = options;
   const prefix = symbol ? "₹" : "";
 
-  if (n === null || n === undefined || isNaN(n as number)) return "—";
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
 
   const absN = Math.abs(n);
   const sign = n < 0 ? "-" : "";

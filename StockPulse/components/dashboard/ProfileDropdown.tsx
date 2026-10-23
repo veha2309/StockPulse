@@ -47,14 +47,14 @@ export default function ProfileDropdown({ user, onLogout, onEditOpen }: {
           exit={{ opacity: 0, y: 8, scale: 0.97 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
           style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 99999 }}
-          className="w-72 bg-background/95 backdrop-blur-xl rounded-[2rem] border border-border shadow-2xl"
+          className="w-72 bg-background/95 backdrop-blur-xl rounded-xl border border-border shadow-none"
         >
           <div className="px-8 py-8 border-b border-border bg-background/40 relative overflow-hidden rounded-t-[2rem]">
             <div className="absolute top-0 right-0 p-4 opacity-5">
               <User size={80} />
             </div>
             <div className="relative">
-              <p className="text-sm font-black text-foreground uppercase tracking-tight truncate">{user.name}</p>
+              <p className="text-sm font-semibold text-foreground normal-case tracking-tight truncate">{user.name}</p>
               <div className="flex items-center gap-2 mt-1 px-0.5">
                 <Mail size={10} className="text-muted-foreground" />
                 <p className="text-[9px] text-muted-foreground font-bold truncate opacity-60 tracking-wider lowercase">{user.email}</p>
@@ -65,7 +65,7 @@ export default function ProfileDropdown({ user, onLogout, onEditOpen }: {
           <div className="p-3 bg-background/20 rounded-b-[2rem]">
             <button
               onClick={() => { onEditOpen(); setOpen(false); }}
-              className="w-full flex items-center gap-4 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-2xl transition-all group"
+              className="w-full flex items-center gap-4 px-5 py-4 text-[10px] font-semibold normal-case tracking-normal text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl transition-all group"
             >
               <div className="p-2 rounded-xl bg-secondary group-hover:bg-primary/10 transition-colors shadow-sm">
                 <Edit3 size={14} className="group-hover:text-primary transition-colors text-muted-foreground" />
@@ -73,16 +73,16 @@ export default function ProfileDropdown({ user, onLogout, onEditOpen }: {
               Manage Account
             </button>
 
-            <div className="h-px bg-border my-2 mx-4 opacity-50" />
+            <div className="h-px bg-border my-2 mx-4 opacity-80" />
 
             <button
               onClick={onLogout}
-              className="w-full flex items-center gap-4 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10 rounded-2xl transition-all group"
+              className="w-full flex items-center gap-4 px-5 py-4 text-[10px] font-semibold normal-case tracking-normal text-destructive hover:bg-destructive/10 rounded-xl transition-all group"
             >
               <div className="p-2 rounded-xl bg-destructive/10 group-hover:bg-destructive/20 transition-colors shadow-sm">
                 <LogOut size={14} />
               </div>
-              Terminate
+              Sign out
             </button>
           </div>
         </motion.div>
@@ -96,13 +96,13 @@ export default function ProfileDropdown({ user, onLogout, onEditOpen }: {
         ref={btnRef}
         onClick={handleOpen}
         className={cn(
-          "flex items-center gap-2 glass-premium px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-border active:scale-95",
-          open ? "bg-primary text-primary-foreground border-primary/20 shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          "flex items-center gap-2 surface px-3 py-1.5 rounded-xl text-[10px] font-semibold normal-case tracking-normal transition-all border-border active:scale-95",
+          open ? "bg-primary text-primary-foreground border-primary/20 shadow-none shadow-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"
         )}
       >
         <div className={cn(
-          "w-6 h-6 rounded-xl flex items-center justify-center font-black text-[10px] shadow-sm transition-all",
-          open ? "bg-white text-primary" : "bg-primary text-white"
+          "w-6 h-6 rounded-xl flex items-center justify-center font-semibold text-[10px] shadow-sm transition-all",
+          open ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground"
         )}>
           {user.name[0].toUpperCase()}
         </div>

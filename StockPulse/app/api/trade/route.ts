@@ -1,145 +1,254 @@
-import { NextResponse } from 'next/server';
-import { supabase, safeUser } from '@/lib/supabase';
+import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { supabase } from "@/lib/server-db";
+import { safeUser } from "@/lib/user";
+import { requestSession } from "@/lib/session";
+import { databaseError } from "@/lib/database";
+import {
+  applyTrade,
+  positiveNumber,
+  validSymbol,
+  TradeError,
+  type TradeInput,
+} from "@/lib/trading";
+import { executionPrice } from "@/lib/market-data";
+import {
+  optionPremium,
+  practiceContract,
+  practiceExpiry,
+} from "@/lib/simulated-options";
 
 export async function POST(request: Request) {
+  const session = requestSession(request);
+  if (!session)
+    return NextResponse.json({ error: "Sign-in required" }, { status: 401 });
   try {
     const body = await request.json();
-    
-    // Fetch the latest user state to perform the trade
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', body.email)
-      .maybeSingle();
-
-    if (userError || !user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    const now = new Date().toISOString();
-
-    if (body.tradeType === "equity" || !body.tradeType) {
-      const { action, symbol, amount, price } = body;
-      if (!action || !symbol || !amount || amount <= 0 || !price) {
-        return NextResponse.json({ error: "Missing or invalid fields" }, { status: 400 });
-      }
-
-      const total = parseFloat((amount * price).toFixed(2));
-      let currentTokens = Number(user.etokens ?? user.e_tokens ?? 0);
-      let portfolio: any[] = user.portfolio || [];
-
-      if (action === "buy") {
-        if (currentTokens < total) return NextResponse.json({ error: "Insufficient E-Tokens" }, { status: 400 });
-        currentTokens = parseFloat((currentTokens - total).toFixed(2));
-        
-        const holding = portfolio.find(p => p.symbol === symbol);
-        if (holding) {
-          const prevTotal = holding.avgBuyPrice * holding.amount;
-          holding.amount += amount;
-          holding.avgBuyPrice = parseFloat(((prevTotal + price * amount) / holding.amount).toFixed(4));
-        } else {
-          portfolio.push({ symbol, amount, avgBuyPrice: price });
-        }
-      } else if (action === "sell") {
-        const holding = portfolio.find(p => p.symbol === symbol);
-        if (!holding || holding.amount < amount) {
-          return NextResponse.json({ error: "Insufficient shares to sell" }, { status: 400 });
-        }
-        currentTokens = parseFloat((currentTokens + total).toFixed(2));
-        holding.amount -= amount;
-        if (holding.amount === 0) {
-          portfolio = portfolio.filter(p => p.symbol !== symbol);
-        }
-      } else {
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-      }
-
-      // Update user
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({ etokens: currentTokens, e_tokens: currentTokens, portfolio })
-        .eq('email', user.email)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      // Insert trade record
-      const { error: insertErr } = await supabase.from('trades').insert({
-        _id: Date.now().toString(),
-        email: user.email,
-        action,
-        symbol,
-        amount,
-        price,
-        total,
-        timestamp: now
-      });
-
-      if (insertErr) throw insertErr;
-
-      return NextResponse.json({ user: safeUser(updatedUser) });
+    if (body.email && body.email !== session.email)
+      return NextResponse.json({ error: "Account mismatch" }, { status: 403 });
+    const tradeType = body.tradeType ?? "equity";
+    const symbol = tradeType === "option" ? body.underlyingSymbol : body.symbol;
+    const quantity = tradeType === "option" ? body.lots : body.amount;
+    if (
+      body.orderId !== undefined &&
+      (typeof body.orderId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          body.orderId,
+        ))
+    )
+      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    const id = body.orderId || randomUUID();
+    if (
+      !["equity", "option"].includes(tradeType) ||
+      !["buy", "sell"].includes(body.action) ||
+      !validSymbol(symbol) ||
+      !Number.isSafeInteger(quantity) ||
+      quantity <= 0
+    )
+      return NextResponse.json(
+        { error: "Provide a valid symbol, action and positive whole quantity" },
+        { status: 400 },
+      );
+    if (
+      tradeType === "equity" &&
+      body.action === "buy" &&
+      [
+        "NSE:NIFTY_50",
+        "NSE:NIFTY_BANK",
+        "NSE:NIFTY_IT",
+        "NSE:NIFTY_MIDCAP_50",
+        "BSE:SENSEX",
+      ].includes(symbol)
+    )
+      return NextResponse.json(
+        {
+          error:
+            "Indices cannot be bought as shares. Select an equity or explore practice options.",
+        },
+        { status: 400 },
+      );
+    let contract: TradeInput["contract"];
+    if (tradeType === "option") {
+      if (
+        !["call", "put"].includes(body.optionType) ||
+        !positiveNumber(body.strike) ||
+        !Number.isSafeInteger(body.expiration) ||
+        body.expiration * 1000 <= Date.now() ||
+        body.contractSymbol !==
+          practiceContract(
+            symbol,
+            body.strike,
+            body.optionType,
+            body.expiration,
+          )
+      )
+        return NextResponse.json(
+          { error: "Invalid or expired practice contract" },
+          { status: 400 },
+        );
+      if (body.action === "buy" && body.expiration !== practiceExpiry())
+        return NextResponse.json(
+          { error: "Refresh the option chain before buying this expiry" },
+          { status: 400 },
+        );
+      contract = {
+        contractSymbol: body.contractSymbol,
+        underlyingSymbol: symbol,
+        type: body.optionType,
+        strike: body.strike,
+        expiration: body.expiration,
+      };
     }
-
-    if (body.tradeType === "option") {
-      const { action, contractSymbol, underlyingSymbol, optionType, strike, expiration, lots, premium } = body;
-      if (!action || !contractSymbol || !lots || lots <= 0 || !premium) {
-        return NextResponse.json({ error: "Missing or invalid option fields" }, { status: 400 });
-      }
-
-      const total = parseFloat((lots * premium).toFixed(2));
-      let currentTokens = Number(user.etokens ?? user.e_tokens ?? 0);
-      let options: any[] = user.options || [];
-
-      if (action === "buy") {
-        if (currentTokens < total) return NextResponse.json({ error: "Insufficient E-Tokens" }, { status: 400 });
-        currentTokens = parseFloat((currentTokens - total).toFixed(2));
-        options.push({
-          id: Date.now().toString(),
-          contractSymbol, underlyingSymbol, type: optionType, strike, expiration, lots, premium, side: "buy", timestamp: now
-        });
-      } else if (action === "sell") {
-        const pos = options.find(o => o.contractSymbol === contractSymbol && o.side === "buy");
-        if (!pos || pos.lots < lots) return NextResponse.json({ error: "Insufficient option lots to sell" }, { status: 400 });
-        currentTokens = parseFloat((currentTokens + total).toFixed(2));
-        pos.lots -= lots;
-        if (pos.lots === 0) {
-          options = options.filter(o => o.id !== pos.id);
-        }
-      } else {
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-      }
-
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({ etokens: currentTokens, e_tokens: currentTokens, options })
-        .eq('email', user.email)
-        .select()
+    const receiptResponse = async () => {
+      const { data: receipt, error } = await supabase
+        .from(tradeType === "equity" ? "trades" : "option_trades")
+        .select("*")
+        .eq("_id", id)
+        .maybeSingle();
+      if (error) return databaseError(error);
+      if (!receipt) return null;
+      if (
+        receipt.email !== session.email ||
+        receipt.action !== body.action ||
+        (tradeType === "equity"
+          ? receipt.symbol !== symbol || Number(receipt.amount) !== quantity
+          : receipt.contractSymbol !== contract?.contractSymbol ||
+            Number(receipt.lots) !== quantity)
+      )
+        return NextResponse.json(
+          { error: "Order id is already used by a different order" },
+          { status: 409 },
+        );
+      const { data: account, error: accountError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", session.email)
         .single();
-      
-      if (updateError) throw updateError;
-
-      const { error: optInsertErr } = await supabase.from('option_trades').insert({
-        _id: Date.now().toString() + '_' + Math.floor(Math.random() * 1000),
-        email: user.email,
-        action,
-        contractSymbol,
-        underlyingSymbol,
-        optionType,
-        strike,
-        expiration,
-        lots,
-        premium,
-        total,
-        timestamp: now
+      if (accountError) return databaseError(accountError);
+      return NextResponse.json({
+        user: safeUser(account),
+        executionPrice: Number(receipt.price ?? receipt.premium),
+        total: Number(receipt.total),
       });
-
-      if (optInsertErr) throw optInsertErr;
-
-      return NextResponse.json({ user: safeUser(updatedUser) });
+    };
+    const completed = await receiptResponse();
+    if (completed) return completed;
+    let price: number;
+    try {
+      const spot = await executionPrice(symbol);
+      price = contract
+        ? optionPremium(
+            spot,
+            contract.strike,
+            contract.type,
+            contract.expiration,
+          )
+        : spot;
+    } catch {
+      return NextResponse.json(
+        { error: "Market price is unavailable. Order was not placed." },
+        { status: 503 },
+      );
     }
-
-    return NextResponse.json({ error: "Invalid tradeType" }, { status: 400 });
+    const timestamp = new Date().toISOString();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt) {
+        const completed = await receiptResponse();
+        if (completed) return completed;
+      }
+      const { data: row, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", session.email)
+        .maybeSingle();
+      if (error) return databaseError(error);
+      if (!row)
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      const user = safeUser(row);
+      if (body.trigger) {
+        const holding = user.portfolio.find((p) => p.symbol === symbol);
+        if (
+          body.action !== "sell" ||
+          tradeType !== "equity" ||
+          !holding ||
+          holding.amount !== quantity ||
+          !(
+            (holding.sl && price <= holding.sl) ||
+            (holding.tp && price >= holding.tp)
+          )
+        )
+          return NextResponse.json(
+            { error: "Target is no longer triggered" },
+            { status: 409 },
+          );
+      }
+      const state = applyTrade(
+        user,
+        {
+          action: body.action,
+          tradeType,
+          symbol,
+          quantity,
+          price,
+          contract,
+          positionId: body.positionId,
+        },
+        id,
+        timestamp,
+      );
+      const trade = contract
+        ? {
+            _id: id,
+            action: body.action,
+            ...contract,
+            optionType: contract.type,
+            lots: quantity,
+            premium: price,
+            total: state.total,
+            timestamp,
+          }
+        : {
+            _id: id,
+            action: body.action,
+            symbol,
+            amount: quantity,
+            price,
+            total: state.total,
+            timestamp,
+          };
+      const { data: updated, error: commitError } = await supabase.rpc(
+        "stockpulse_commit_trade",
+        {
+          p_email: session.email,
+          p_expected: {
+            balance: user.eTokens,
+            portfolio: user.portfolio,
+            options: user.options,
+          },
+          p_state: state,
+          p_kind: tradeType,
+          p_trade: trade,
+        },
+      );
+      if (commitError?.message === "CONFLICT") continue;
+      if (commitError) return databaseError(commitError);
+      return NextResponse.json({
+        user: safeUser(updated),
+        executionPrice: updated.executionPrice ?? price,
+        total: updated.total ?? state.total,
+      });
+    }
+    return NextResponse.json(
+      { error: "Account changed during this order. Please try again." },
+      { status: 409 },
+    );
   } catch (error) {
-    console.error("[trade api]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    if (error instanceof TradeError)
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("[trade]", error);
+    return NextResponse.json(
+      { error: "Unable to process order" },
+      { status: 400 },
+    );
   }
 }
